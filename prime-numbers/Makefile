@@ -1,35 +1,73 @@
-# Compiler settings
-CC = cl.exe
-CFLAGS = /Iinclude /W4 /MD /Zi /c\
-LINKER = link.exe
+SRC_DIR  := src
+OBJ_DIR  := build\obj
+BIN_DIR  := build
+INC_DIR  := include
+LIB_DIR  := libraries
+EXE_NAME := is-prime.exe
 
-# Directories
-SRC_DIR = src
-OBJ_DIR = obj
-BIN_DIR = .
+EXE := $(BIN_DIR)/$(EXE_NAME)
+SRC := $(wildcard $(SRC_DIR)/*.c)
+OBJ := $(SRC:$(SRC_DIR)/%.c=$(OBJ_DIR)/%.o)
 
-# Files
-SOURCES = $(SRC_DIR)/main.c $(SRC_DIR)/prime.c
-OBJECTS = $(OBJ_DIR)/main.o $(OBJ_DIR)/prime.o
-TARGET = $(BIN_DIR)/is-prime.exe
+RMDIR := rd /s /q
 
-# Default build rule
-all: setup $(TARGET)
+CC       := gcc
+CPPFLAGS := -I$(INC_DIR) -MMD -MP
+CFLAGS   := -Wall -Werror
+LDFLAGS  := -L$(LIB_DIR)
+LDLIBS   := -lm -static $(patsubst $(LIB_DIR)\lib*.a, -l$(LIB_DIR)\*, $(wildcard $(LIB_DIR)/lib*.a))
 
-# Link object files to create the final Windows executable
-$(TARGET): $(OBJECTS)
-	$(CC) $(OBJECTS) -o $(TARGET)
+.PHONY: all clean
 
-# Compile C source files into object files
-$(OBJ_DIR)/%.o: $(SRC_DIR)/%.c
-	$(CC) $(CFLAGS) -c $< -o $@
+all: $(EXE)
 
-# Create the obj and data folders if they do not exist
-setup:
-	@if not exist $(OBJ_DIR) mkdir $(OBJ_DIR)
+$(EXE): $(OBJ) | $(BIN_DIR)
+	$(CC) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
-# Clean rule to wipe out built files using Windows commands
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.c | $(OBJ_DIR)
+	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
+
+$(BIN_DIR) $(OBJ_DIR):
+	if not exist "$@" mkdir $@
+
 clean:
-	@if exist $(OBJ_DIR) rmdir /s /q $(OBJ_DIR)
-	@if exist $(TARGET) del /q $(TARGET)
-	@echo Cleanup complete!
+	@if exist $(BIN_DIR) $(RMDIR) $(BIN_DIR)
+	@if exist $(OBJ_DIR) $(RMDIR) $(OBJ_DIR)
+
+-include $(OBJ:.o=.d)SRC_DIR  := sources
+OBJ_DIR  := ./build\obj
+BIN_DIR  := ./build
+INC_DIR  := ./include
+LIB_DIR  := ./libraries
+EXE_NAME := is-prime.exe
+
+EXE := $(BIN_DIR)/$(EXE_NAME)
+SRC := $(wildcard $(SRC_DIR)/*.c)
+OBJ := $(SRC:$(SRC_DIR)/%.c=$(OBJ_DIR)/%.o)
+
+RMDIR := rd /s /q
+
+CC       := gcc
+CPPFLAGS := -I$(INC_DIR) -MMD -MP
+CFLAGS   := -Wall -Werror
+LDFLAGS  := -L$(LIB_DIR)
+LDLIBS   := -lm -static $(patsubst $(LIB_DIR)\lib*.a, -l$(LIB_DIR)\*, $(wildcard $(LIB_DIR)/lib*.a))
+
+.PHONY: all clean
+
+all: $(EXE)
+
+$(EXE): $(OBJ) | $(BIN_DIR)
+	$(CC) $(LDFLAGS) $^ $(LDLIBS) -o $@
+
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.c | $(OBJ_DIR)
+	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
+
+$(BIN_DIR) $(OBJ_DIR):
+	if not exist "$@" mkdir $@
+
+clean:
+	@if exist $(BIN_DIR) $(RMDIR) $(BIN_DIR)
+	@if exist $(OBJ_DIR) $(RMDIR) $(OBJ_DIR)
+
+-include $(OBJ:.o=.d)
