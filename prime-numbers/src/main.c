@@ -14,8 +14,8 @@ typedef enum {
 
 OptionType parse_opts(const char *arg) {
     // if (strcmp(arg, "-v") == 0 || strcmp(arg, "--verbose") == 0) return OPT_VERBOSE;
-    if (strcmp(arg, "-n") == 0 || strcmp(arg, "--number") == 0) return OPT_NUMBER;
     // if (strcmp(arg, "-h") == 0 || strcmp(arg, "--help") == 0) return OPT_HELP;
+    if (strcmp(arg, "-n") == 0 || strcmp(arg, "--number") == 0) return OPT_NUMBER;
     return OPT_UNKNOWN;
 }
 
