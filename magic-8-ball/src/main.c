@@ -25,7 +25,7 @@ const char *RESPONSES[] = {
     "Not no",
     "Probably",
     "Don't ask me, I'm drunk",
-    "Don't ask me, I'm a sychophant",
+    "Don't ask me, I'm a sycophant",
     "I'm a computer",
     "Go touch grass",
     "git good",
@@ -58,9 +58,6 @@ int main() {
         // Determine the response and print it
         response = rand() % len;
         printf("%s\n", RESPONSES[response]);
-    
-        // Clear the input buffer
-        memset(input, 0, 2048);
 
         printf("Ask another question? [Y/n]: \n");
         fgets(input, sizeof(input), stdin);
