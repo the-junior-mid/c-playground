@@ -47,7 +47,7 @@ int main() {
                 choice = 0;
             }
         }
-        printf("The all knowing computer picks %s\n", ROSHAMBO[choice]);
+        printf("The all knowing computer picks %s!\n", ROSHAMBO[choice]);
         if (buff2[0] == 'r' || buff2[0] == 'R') {
             if (choice == 0) {
                 draws += 1;
