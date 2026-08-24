@@ -45,27 +45,19 @@ int main() {
     // The length of the response array
     int len = sizeof(RESPONSES) / sizeof(RESPONSES[0]);
 
-    // Flag to determine if loop should keep running
-    bool run = true;
-
     int response;
     char input[2048];
-    while (run) {
-        printf("What is your question?: ");
+    while (true) {
+        printf("What is your question? [q/Q to quit]: ");
         fgets(input, sizeof(input), stdin);
+        if (input[0] == 'q' || input[0] == 'Q') {
+            break;
+        }
         printf("Thinking...\n");
 
         // Determine the response and print it
         response = rand() % len;
         printf("%s\n", RESPONSES[response]);
-
-        printf("Ask another question? [Y/n]: \n");
-        fgets(input, sizeof(input), stdin);
-        if (input[0] == 'N' || input[0] == 'n') {
-            run = false;
-        } else {
-            continue;
-        }
     }
    
     return 0;
