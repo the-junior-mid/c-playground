@@ -1,11 +1,11 @@
 SRC_DIR  := src
-OBJ_DIR  := build\obj
+OBJ_DIR  := build/obj
 BIN_DIR  := build
 INC_DIR  := include
 LIB_DIR  := libraries
-EXE_NAME := ro-sham-bo.exe
+BIN_NAME := ro-sham-bo
 
-EXE := $(BIN_DIR)/$(EXE_NAME)
+BIN := $(BIN_DIR)/$(BIN_NAME)
 SRC := $(wildcard $(SRC_DIR)/*.c)
 OBJ := $(SRC:$(SRC_DIR)/%.c=$(OBJ_DIR)/%.o)
 
@@ -19,9 +19,9 @@ LDLIBS   := -lm -static $(patsubst $(LIB_DIR)\lib*.a, -l$(LIB_DIR)\*, $(wildcard
 
 .PHONY: all clean
 
-all: $(EXE)
+all: $(BIN)
 
-$(EXE): $(OBJ) | $(BIN_DIR)
+$(BIN): $(OBJ) | $(BIN_DIR)
 	$(CC) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c | $(OBJ_DIR)
@@ -35,13 +35,13 @@ clean:
 	@if exist $(OBJ_DIR) $(RMDIR) $(OBJ_DIR)
 
 -include $(OBJ:.o=.d)SRC_DIR  := sources
-OBJ_DIR  := ./build\obj
+OBJ_DIR  := ./build/obj
 BIN_DIR  := ./build
 INC_DIR  := ./include
 LIB_DIR  := ./libraries
-EXE_NAME := is-prime.exe
+BIN_NAME := is-prime.exe
 
-EXE := $(BIN_DIR)/$(EXE_NAME)
+BIN := $(BIN_DIR)/$(BIN_NAME)
 SRC := $(wildcard $(SRC_DIR)/*.c)
 OBJ := $(SRC:$(SRC_DIR)/%.c=$(OBJ_DIR)/%.o)
 
@@ -55,9 +55,9 @@ LDLIBS   := -lm -static $(patsubst $(LIB_DIR)\lib*.a, -l$(LIB_DIR)\*, $(wildcard
 
 .PHONY: all clean
 
-all: $(EXE)
+all: $(BIN)
 
-$(EXE): $(OBJ) | $(BIN_DIR)
+$(BIN): $(OBJ) | $(BIN_DIR)
 	$(CC) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c | $(OBJ_DIR)

@@ -13,7 +13,7 @@ typedef enum {
     OPT_NUMBER,
 } OptionType;
 
-OptionType parse_opts(const char *arg) {
+OptionType parse_opts(char *argv) {
     // if (strcmp(arg, "-v") == 0 || strcmp(arg, "--verbose") == 0) return OPT_VERBOSE;
     // if (strcmp(arg, "-h") == 0 || strcmp(arg, "--help") == 0) return OPT_HELP;
     if (strcmp(arg, "-n") == 0 || strcmp(arg, "--number") == 0) return OPT_NUMBER;
