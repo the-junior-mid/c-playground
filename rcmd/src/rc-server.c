@@ -1,4 +1,6 @@
+#include <asm-generic/errno-base.h>
 #include <asm-generic/socket.h>
+#include <errno.h>
 #include <getopt.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -17,7 +19,7 @@
 
 
 struct RCmdOpts {
-  int port;
+  uint16_t port;
   bool shell;
 };
 
@@ -51,38 +53,80 @@ int parse_opts(int argc, char *argv[], struct RCmdOpts *opts) {
   return 0;
 }
 
-int run(int port, bool shell) {
+int handler(int peer) {
+  char buffer[4096] = { 0 };
+  size_t buffer_len = sizeof(buffer) / sizeof(buffer[0]);
+
+  for (;;) {
+    size_t n = recv(peer, buffer, sizeof(buffer), 0);
+    if (n > 0) {
+      printf("Buffer: %s\n", buffer);
+    } else if (n == 0) {
+      break;
+    } else {
+      printf("Error occurred: %d", errno);
+      if (errno == EINTR) continue;
+      close(peer);
+      perror("Could not read from peer");
+
+      return 1;
+    }  
+  }
+  
+  return 0;
+}
+
+int run(uint16_t port, bool shell) {
   int socket_fd, peer;
   int opt = 1;
   struct sockaddr_in address;
+  // Clear out the address
+  memset(&address, 0, sizeof(address));
   socklen_t addrlen = sizeof(address);
 
-  if ((socket_fd = socket(AF_UNIX, SOCK_STREAM, 0)) < 0) {
+  // Create the socket
+  if ((socket_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+    close(socket_fd);
+
     err(EXIT_FAILURE, "Could not create socket");
   }
+
+  // Set socket options
   if (setsockopt(socket_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) {
+    close(socket_fd);
+
     err(EXIT_FAILURE, "Could not set socket options");
   }
-  address.sin_family = AF_INET;
-  address.sin_addr.s_addr = INADDR_ANY;
-  address.sin_port = htons(port);
 
+  // Bind the socket
+  address.sin_family = AF_INET;
+  address.sin_addr.s_addr = htonl(INADDR_ANY);
+  address.sin_port = htons(port);
   if ((bind(socket_fd, (struct sockaddr*)&address, sizeof(address))) < 0) {
+    close(socket_fd);
+
     err(EXIT_FAILURE, "Could not bind to socket");
   }
+
+  // Listen for connections
   if (listen(socket_fd, 3) < 0) {
+    close(socket_fd);
+
     err(EXIT_FAILURE, "Could not listen on socket");
   }
 
-  ssize_t bytes_read;
-  char buffer[1024] = { 0 };
-  size_t buffer_len = sizeof(buffer) / sizeof(buffer[0]);
   if ((peer = accept(socket_fd, (struct sockaddr*)&address, &addrlen)) < 0) {
+    close(socket_fd);
+
     err(EXIT_FAILURE, "Could not accept connection on socket %d", socket_fd);
   }
-  // Read up to the second to last character for null term room
-  bytes_read = read(peer, buffer, buffer_len - 1);
-  printf("buffer: %s\n", buffer);
+
+  if (handler(peer) < 0) {
+    close(peer);
+    close(socket_fd);
+
+    err(EXIT_FAILURE, "TCP handler encountered an error");
+  }
 
   close(peer);
   close(socket_fd);
