@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include <asm-generic/errno-base.h>
 #include <asm-generic/socket.h>
 #include <errno.h>
@@ -15,6 +16,7 @@
 #include <netinet/in.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <fcntl.h> 
 
 #define SOCKET_PATH "/tmp/rcs"
 #define BACKLOG 50
@@ -23,7 +25,9 @@
 typedef struct {
   int rc;
   char *stdout;
+  size_t stdout_len;
   char *stderr;
+  size_t stderr_len;
 } Output;
 
 typedef struct {
@@ -62,31 +66,105 @@ int parse_opts(int argc, char *argv[], RCmdOpts *opts) {
 }
 
 int run_command(char *cmd, bool shell, Output *out) {
+  if (!out) {
+    fprintf(stderr, "invalid Output argument\n");
+    return 1;
+  }
   printf("Running command: %s\n", cmd);
+  int pipe_fd[2];
+  if (pipe2(pipe_fd, O_CLOEXEC) < 0) {
+    fprintf(stderr, "pipe2 call failed: %s\n", strerror(errno));
+    return 1;
+  }
   pid_t pid = fork();
   // Check the fork succeeded
   if (pid < 0) {
-    fprintf(stderr, "could not run fork: %s", strerror(errno));
+    fprintf(stderr, "could not run fork: %s\n", strerror(errno));
     return 1;
   }
 
   // From here only the child should run the code
   if (pid == 0) {
-    char *argv[] = {"whoami"};
-    execvp(argv[0], argv);
-    fprintf(stderr, "could not call execvp: %s", strerror(errno));
+    if (dup2(pipe_fd[1], STDOUT_FILENO) < 0 || dup2(pipe_fd[1], STDERR_FILENO) < 0) {
+      exit(126);
+    }
+    if (shell) {
+      // Parse the given command by spliting on spaces
+      int rc = system(cmd);
+      if (rc < 0) {
+        fprintf(stderr, "system call failed: %s\n", strerror(errno));
+        return 1;
+      }
+    } else {
+      char *saveptr;
+      char *argv[] = {};
+      size_t argc;
+
+      execvp(argv[0], argv);
+      fprintf(stderr, "could not call execvp: %s\n", strerror(errno));
+      return 1;
+    }
+  }
+
+  close(pipe_fd[1]);
+
+  size_t cap = 4096;
+  size_t len = 0;
+  char *buf = malloc(cap);
+  if (!buf) {
+    close(pipe_fd[0]);
+    waitpid(pid, NULL, 0);
+    fprintf(stderr, "malloc call failed: %s\n", strerror(errno));
     return 1;
   }
+  memset(buf, 0, cap);
+
+  for (;;) {
+    // Check if there is space in the buffer and reallocate if not
+    if (len + 1 >= cap) {
+      // Double the capacity
+      cap *= 2;
+      char *tmp = realloc(buf, cap);
+      if (!tmp) {
+        fprintf(stderr, "realloc failed: %s\n", strerror(errno));
+        close(pipe_fd[0]);
+        waitpid(pid, NULL, 0);
+        return 1;
+      }
+      buf = tmp;
+    }
+
+    size_t n = read(pipe_fd[0], buf + len, cap - len - 1);
+    if (n > 0) {
+      len += n;
+    } else if (n == 0) {
+      break;
+    } else if (errno == EINTR) {
+      continue;
+    } else {
+      fprintf(stderr, "read failed: %s\n", strerror(errno));
+      return 1;
+    }
+  }
+
+  close(pipe_fd[0]);
+  buf[len] = '\0';
 
   int status;
   if (waitpid(pid, &status, 0) < 0) {
-    fprintf(stderr, "waitpid failed: %s", strerror(errno));
+    fprintf(stderr, "waitpid failed: %s\n", strerror(errno));
     return 1;
   } else if (WIFEXITED(status)) {
     out->rc = WEXITSTATUS(status);
   } else if (WIFSIGNALED(status)) {
     printf("Terminated by signal: %d\n", WTERMSIG(status));
   }
+
+  printf("Command output: %s\n", buf);
+  out->rc = status;
+  out->stdout = buf;
+  out->stdout_len = len;
+  // memset(buf, 0, cap);
 
   return 0;
 }
@@ -101,6 +179,7 @@ int handler(int peer, bool shell) {
       printf("Buffer: %s\n", buffer);
       Output out;
       memset(&out, 0, sizeof(out));
+      buffer[n] = 0;
       if (run_command(buffer, shell, &out) < 0) {
         fprintf(stderr, "ERROR: could not run command: %s", strerror(errno));
       }
