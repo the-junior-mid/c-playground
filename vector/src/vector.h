@@ -17,8 +17,6 @@ typedef struct {
 
 // Construction of the Vector
 int vec_new(size_t cap, size_t s, vector *v) {
-    printf("vector: storing elements of size %d\n", s);
-    printf("vector: capacity * size = %d\n", cap * s);
     // Allocate memory for the Vector
     // The returned pointer needs to be generic
     void *ptr = malloc(cap * s);
@@ -106,7 +104,22 @@ int vec_pop(vector *v, int *out) {
 }
 
 // Extend the vector with the given vector
-int vec_extend(vector *v, vector *extension) {
+int vec_extend(vector *v, vector *ext) {
+    // Check the elements are at least the same size
+    if (v->elem_s != ext->elem_s) {
+        fprintf(stderr, "ERROR: extension must hold elements of the same size");
+        return -1;
+    }
+    // Check if the ext will fit in the current vector, if not, then realloc to the combined size
+    if (v->len + ext->len >= v->cap) {
+        if (vec_realloc(v, v->cap + ext->cap) < 0) return -1;
+    }
+    size_t old_len = v->len;
+    v->len += ext->len;
+    // Place contents of ext into vector
+    for (size_t i = old_len; i < v->len; i++) {
+        v->ptr[i] = ext->ptr[i - old_len];
+    }
     return 0;
 }
 
@@ -116,11 +129,27 @@ int vec_insert(vector *v, size_t index, int item) {
         fprintf(stderr, "ERROR: index is out of bounds\n");
         return -1;
     }
+    v->len++;
+    int tmp = v->ptr[index];
+    v->ptr[index] = item;
+    for (size_t i = index + 1; i < v->len; i++) {
+        v->ptr[i] = tmp;
+        if (i + 1 < v->len) tmp = v->ptr[i + 1];
+    }
     return 0;
 }
 
 // Remove the item at the specified index, shifting all other elements to the left, and placing the value of the removed item in `out`
 int vec_remove(vector *v, size_t index, int *out) {
+    if (index >= v->len) {
+        fprintf(stderr, "ERROR: index is out of bounds\n");
+        return -1;
+    }
+    if (out != NULL) *out = v->ptr[index];
+    v->len--;
+    for (size_t i = index; i < v->len; i++) {
+        v->ptr[i] = v->ptr[i + 1];
+    } 
     return 0;
 }
 
@@ -136,7 +165,41 @@ int vec_get(vector *v, size_t index, int *out) {
 
 // Reverse the order of the vector
 int vec_reverse(vector *v) {
-    // TODO: reallocate a new vector and put the items in reverse order inside of it
+    int tmp1;
+    int tmp2;
+    // Index from the beginning and end of the vector, once i==k the middle has been reached and can stop
+    size_t k = v->len - 1;
+    size_t i = 0;
+    while (i < k) {
+        tmp1 = v->ptr[i];
+        tmp2 = v->ptr[k];
+        v->ptr[i] = tmp2;
+        v->ptr[k] = tmp1;
+        k--;
+        i++;
+    }
+
+    return 0;
+}
+
+// Reverse the order of the vector but use malloc first.
+// NOTE: This is a bad method of doing this, the new malloc is not needed since values can be swapped in place
+int _vec_reverse_realloc(vector *v) {
+    int *v_new = malloc(v->cap * sizeof(v->elem_s));
+    if (v_new == NULL) {
+        perror("malloc");
+        return -1;
+    }
+    ssize_t i = v->len - 1;
+    int *tmp = v_new;
+    while (i >= 0) {
+        *tmp = v->ptr[i];
+        tmp++;
+        i--;
+    }
+
+    v->ptr = v_new;
+
     return 0;
 }
 
@@ -150,6 +213,11 @@ int vec_swap(vector *v, size_t index1, size_t index2) {
         fprintf(stderr, "ERROR: index2 is out of bounds\n");
         return -1;
     }
+    int tmp1 = v->ptr[index1];
+    int tmp2 = v->ptr[index2];
+    v->ptr[index1] = tmp2;
+    v->ptr[index2] = tmp1;
+
     return 0;
 }
 
