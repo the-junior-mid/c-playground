@@ -33,7 +33,7 @@ int vec_new(size_t cap, size_t s, vector *v) {
     return 0;
 }
 
-// Free the allocated Vecotr
+// Free the allocated vector memory
 void vec_free(vector *v) {
     free(v->ptr);
 }
@@ -96,7 +96,7 @@ int vec_pop(vector *v, int *out) {
         fprintf(stderr, "ERROR: cannot pop from an empty vector\n");
         return -1;
     }
-    memcpy(out, v->ptr + v->len, v->elem_s);
+    memcpy(out, v->ptr + v->len - 1, v->elem_s);
 
     v->len -= 1;
 
@@ -133,6 +133,7 @@ int vec_insert(vector *v, size_t index, int item) {
     int tmp = v->ptr[index];
     v->ptr[index] = item;
     for (size_t i = index + 1; i < v->len; i++) {
+        printf("vector: tmp = %d, i = %d\n", tmp, i);
         v->ptr[i] = tmp;
         if (i + 1 < v->len) tmp = v->ptr[i + 1];
     }
