@@ -68,19 +68,19 @@ int parse_opts(int argc, char *argv[], RCmdOpts *opts) {
 int run_command(char *cmd, bool shell, Output *out) {
   if (!out) {
     fprintf(stderr, "invalid Output argument\n");
-    return 1;
+    return -1;
   }
   printf("Running command: %s\n", cmd);
   int pipe_fd[2];
   if (pipe2(pipe_fd, O_CLOEXEC) < 0) {
     fprintf(stderr, "pipe2 call failed: %s\n", strerror(errno));
-    return 1;
+    return -1;
   }
   pid_t pid = fork();
   // Check the fork succeeded
   if (pid < 0) {
     fprintf(stderr, "could not run fork: %s\n", strerror(errno));
-    return 1;
+    return -1;
   }
 
   // From here only the child should run the code
@@ -93,16 +93,38 @@ int run_command(char *cmd, bool shell, Output *out) {
       int rc = system(cmd);
       if (rc < 0) {
         fprintf(stderr, "system call failed: %s\n", strerror(errno));
-        return 1;
+        exit(126);
       }
     } else {
+      size_t cap = 8, argc = 8;
+      char **argv = malloc(cap * sizeof(*argv));
+      if (!argv) {
+        return -1;
+      }
+
       char *saveptr;
-      char *argv[] = {};
-      size_t argc;
+      for (char *tok = strtok_r(cmd, " ", &saveptr); 
+           tok;
+           tok = strtok_r(NULL, " ", &saveptr)) 
+      {
+        if (argc + 2 > cap) {
+          cap *= 2;
+          char **tmp = realloc(argv, cap * sizeof(*argv));
+          if (!tmp) {
+            free(argv);
+            return -1;
+            argv = tmp;
+          }
+        }
+        printf("Token found: %s\n", tok);
+        argv[argc++] = tok;
+      }
+      argv[argc] = NULL;
 
       execvp(argv[0], argv);
       fprintf(stderr, "could not call execvp: %s\n", strerror(errno));
-      return 1;
+      free(argv);
+      exit(126);
     }
   }
 
@@ -115,13 +137,13 @@ int run_command(char *cmd, bool shell, Output *out) {
     close(pipe_fd[0]);
     waitpid(pid, NULL, 0);
     fprintf(stderr, "malloc call failed: %s\n", strerror(errno));
-    return 1;
+    return -1;
   }
   memset(buf, 0, cap);
 
   for (;;) {
     // Check if there is space in the buffer and reallocate if not
-    if (len + 1 >= cap) {
+  if (len + 1 >= cap) {
       // Double the capacity
       cap *= 2;
       char *tmp = realloc(buf, cap);
@@ -129,7 +151,7 @@ int run_command(char *cmd, bool shell, Output *out) {
         fprintf(stderr, "realloc failed: %s\n", strerror(errno));
         close(pipe_fd[0]);
         waitpid(pid, NULL, 0);
-        return 1;
+        return -1;
       }
       buf = tmp;
     }
@@ -138,12 +160,13 @@ int run_command(char *cmd, bool shell, Output *out) {
     if (n > 0) {
       len += n;
     } else if (n == 0) {
+      printf("Empty buffer");
       break;
     } else if (errno == EINTR) {
       continue;
     } else {
       fprintf(stderr, "read failed: %s\n", strerror(errno));
-      return 1;
+      return -1;
     }
   }
 
@@ -164,7 +187,7 @@ int run_command(char *cmd, bool shell, Output *out) {
   out->rc = status;
   out->stdout = buf;
   out->stdout_len = len;
-  // memset(buf, 0, cap);
+  memset(buf, 0, cap);
 
   return 0;
 }
@@ -194,7 +217,7 @@ int handler(int peer, bool shell) {
       close(peer);
       perror("Could not read from peer");
 
-      return 1;
+      return -1;
     }  
   }
   

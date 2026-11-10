@@ -1,0 +1,13 @@
+[
+
+    {
+        "key": "tab",
+        "command": "selectNextSuggestion",
+        "when": "suggestWidgetHasFocusedSuggestion && suggestWidgetVisible"
+    },
+    {
+        "key": "shift+tab",
+        "command": "selectPrevSuggestion",
+        "when": "suggestWidgetHasFocusedSuggestion && suggestWidgetVisible"
+    }
+]

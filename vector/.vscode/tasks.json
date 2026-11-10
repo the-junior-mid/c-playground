@@ -1,0 +1,12 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "build",
+      "type": "shell",
+      "command": "mkdir -p build && gcc -g -O0 -Wall -Wextra ${workspaceFolder}/src/*.c -o ${workspaceFolder}/build/main",
+      "group": { "kind": "build", "isDefault": true },
+      "problemMatcher": ["$gcc"]
+    }
+  ]
+}
