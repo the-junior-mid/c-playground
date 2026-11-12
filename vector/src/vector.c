@@ -1,17 +1,8 @@
 #include <stdio.h>
 #include <stdbool.h>
+#include <assert.h>
 #include "vector.h"
 
-int main(int argc, char const *argv[])
-{
-    if (test_empty() != 0) fprintf(stderr, "FAILURE: empty tests failed");
-
-    if (test_one_element() != 0) fprintf(stderr, "FAILURE: one element tests failed");
-
-    if (test_max_capacity() != 0) fprintf(stderr, "FAILURE: max capacity tests failed");
-
-    return 0;
-}
 
 int test_empty() {
     vector v;
@@ -193,6 +184,17 @@ int test_max_capacity() {
     assert(vec_cap(&v) == 5);
 
     vec_free(&v);
+
+    return 0;
+}
+
+int main(int argc, char const *argv[])
+{
+    if (test_empty() != 0) fprintf(stderr, "FAILURE: empty tests failed");
+
+    if (test_one_element() != 0) fprintf(stderr, "FAILURE: one element tests failed");
+
+    if (test_max_capacity() != 0) fprintf(stderr, "FAILURE: max capacity tests failed");
 
     return 0;
 }
