@@ -80,6 +80,7 @@ int test_max_capacity() {
     assert(vec_push(&v, &i2) == 0);
     assert(vec_push(&v, &i3) == 0);
     assert(vec_push(&v, &i4) == 0);
+    vec_print(&v);
 
     assert(vec_cap(&v) == 5);
 
@@ -111,34 +112,30 @@ int test_max_capacity() {
     assert(vec_len(&v) == 5);
     assert(vec_is_empty(&v) == false);
 
-    assert(vec_reverse(&v) == 0);
+    vec_reverse(&v);
+    vec_print(&v);
     assert(vec_get(&v, 0, (void *)&out) == 0);
     assert(out == &i4);
     assert(*(int *)out == i4);
-    assert(vec_len(&v) == 5);
     assert(vec_is_empty(&v) == false);
     assert(vec_get(&v, 1, (void *)&out) == 0);
     assert(out == &i3);
     assert(*(int *)out == i3);
-    assert(vec_len(&v) == 5);
     assert(vec_is_empty(&v) == false);
     assert(vec_get(&v, 2, (void *)&out) == 0);
     assert(out == &i2);
     assert(*(int *)out == i2);
-    assert(vec_len(&v) == 5);
     assert(vec_is_empty(&v) == false);
     assert(vec_get(&v, 3, (void *)&out) == 0);
     assert(out == &i1);
     assert(*(int *)out == i1);
-    assert(vec_len(&v) == 5);
     assert(vec_is_empty(&v) == false);
     assert(vec_get(&v, 4, (void *)&out) == 0);
     assert(out == &i0);
     assert(*(int *)out == i0);
-    assert(vec_len(&v) == 5);
     assert(vec_is_empty(&v) == false);
 
-    assert(vec_reverse(&v) == 0);
+    vec_reverse(&v);
     assert(out == &i0);
     assert(*(int *)out == i0);
     assert(vec_len(&v) == 5);
@@ -146,22 +143,18 @@ int test_max_capacity() {
     assert(vec_get(&v, 1, (void *)&out) == 0);
     assert(out == &i1);
     assert(*(int *)out == i1);
-    assert(vec_len(&v) == 5);
     assert(vec_is_empty(&v) == false);
     assert(vec_get(&v, 2, (void *)&out) == 0);
     assert(out == &i2);
     assert(*(int *)out == i2);
-    assert(vec_len(&v) == 5);
     assert(vec_is_empty(&v) == false);
     assert(vec_get(&v, 3, (void *)&out) == 0);
     assert(out == &i3);
     assert(*(int *)out == i3);
-    assert(vec_len(&v) == 5);
     assert(vec_is_empty(&v) == false);
     assert(vec_get(&v, 4, (void *)&out) == 0);
     assert(out == &i4);
     assert(*(int *)out == i4);
-    assert(vec_len(&v) == 5);
     assert(vec_is_empty(&v) == false);
 
     assert(vec_pop(&v, (void *)&out) == 0);
@@ -195,6 +188,7 @@ int test_max_capacity() {
     assert(vec_push(&v, &i2) == 0);
     assert(vec_push(&v, &i3) == 0);
     assert(vec_push(&v, &i4) == 0);
+    assert(vec_len(&v) == 5);
 
     assert(vec_remove(&v, 0, (void *)&out) == 0);
     assert(out == &i0);

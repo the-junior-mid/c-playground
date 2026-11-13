@@ -101,13 +101,11 @@ bool vec_is_empty(vector *v) {
 
 int vec_print(vector *v) {
     printf("[");
-    size_t i = 1;
-    for (void *tmp = v->ptr; tmp != (v->ptr + v->len); tmp++) {
-        printf("%p", tmp);
-        if (i != v->len) {
+    for (size_t i = 0; i < v->len; i++) {
+        printf("%p", v->ptr + i);
+        if (i + 1 < v->len) {
             printf(", ");
         }
-        i++;
     }
     printf("]\n");
 }
@@ -206,23 +204,22 @@ int vec_get(vector *v, size_t index, void **out) {
     return VEC_OK;
 }
 
-// Reverse the order of the vector
-int vec_reverse(vector *v) {
-    void *tmp1;
-    void *tmp2;
+// Reverse the order of the vector in place
+void vec_reverse(vector *v) {
+    void *tmp;
     // Index from the beginning and end of the vector, once i==k the middle has been reached and can stop
+    if (v->len <= 1) {
+        return;
+    }
     size_t k = v->len - 1;
     size_t i = 0;
     while (i < k) {
-        tmp1 = v->ptr[i];
-        tmp2 = v->ptr[k];
-        v->ptr[i] = tmp2;
-        v->ptr[k] = tmp1;
-        k--;
+        tmp = v->ptr[i];
+        v->ptr[i] = v->ptr[k];
+        v->ptr[k] = tmp;
         i++;
+        k--;
     }
-
-    return VEC_OK;
 }
 
 // Reverse the order of the vector but use malloc first.
