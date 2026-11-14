@@ -6,11 +6,11 @@
 // A Vector that will dynamically resize to fit its contents
 typedef struct {
     // The pointer for the vector
-    void **ptr;
+    void *ptr;
     // The total capacity of the vector
     size_t cap;
     // The size of the elements
-    size_t elem_s;
+    size_t elem_size;
     // The current length of the vector
     size_t len;
 } vector;
@@ -52,21 +52,25 @@ char * vec_strerror(int err) {
 }
 
 // Construction of the Vector
-int vec_new(size_t cap, vector *v) {
+int vec_new(vector *v, size_t cap, size_t size) {
     // Allocate memory for the Vector
     // The returned pointer needs to be generic
-    void *ptr = malloc(cap * sizeof(void *));
+    void *ptr = calloc(cap, size);
     if (ptr == NULL) {
         perror("malloc");
         return VEC_ERR_NOMEM;
     }
-    memset(ptr, 0, cap * sizeof(void *));
     v->ptr = ptr;
     v->cap = cap;
-    v->elem_s = sizeof(void *);
+    v->elem_size = size;
     v->len = 0;
     printf("vector: %p\n", v->ptr);
     return VEC_OK;
+}
+
+// Get the address for index
+void * _vec_slot(const vector *v, size_t index) {
+    return (unsigned char *)v->ptr + (index * v->elem_size);
 }
 
 // Free the allocated vector memory
@@ -87,22 +91,23 @@ int vec_realloc(vector *v, size_t new_size) {
     return VEC_OK;
 }
 
-size_t vec_len(vector *v) {
+size_t vec_len(const vector *v) {
     return v->len;
 }
 
-size_t vec_cap(vector *v) {
+size_t vec_cap(const vector *v) {
     return v->cap;
 }
 
-bool vec_is_empty(vector *v) {
+bool vec_is_empty(const vector *v) {
     return v->len == 0;
 }
 
-int vec_print(vector *v) {
+// Casts each element to an int. Only for debugging tests.
+void _vec_print(const vector *v) {
     printf("[");
     for (size_t i = 0; i < v->len; i++) {
-        printf("%p", v->ptr + i);
+        printf("%d", *(int *)_vec_slot(v, i));
         if (i + 1 < v->len) {
             printf(", ");
         }
@@ -112,14 +117,11 @@ int vec_print(vector *v) {
 
 // Add an element to the end of the vector
 int vec_push(vector *v, void *item) {
-    if (v->elem_s != sizeof(item)) {
-        return VEC_ERR_INVALID_SIZE;
-    }
     // Check if the vector has space, if not, then resize it
     if ((v->len >= v->cap) && (vec_realloc(v, v->cap * 2) < 0)) {
         return VEC_ERR_NOMEM;
     }
-    v->ptr[v->len] = item;
+    memcpy(_vec_slot(v, v->len), item, v->elem_size);
     v->len += 1;
     return VEC_OK;
 }
@@ -129,7 +131,7 @@ int vec_pop(vector *v, void *out) {
     if (v->len == 0) {
         return VEC_ERR_EMPTY;
     }
-    memcpy(out, v->ptr + v->len - 1, v->elem_s);
+    memcpy(out, _vec_slot(v, v->len - 1), v->elem_size);
 
     v->len -= 1;
 
@@ -139,19 +141,17 @@ int vec_pop(vector *v, void *out) {
 // Extend the vector with the given vector
 int vec_extend(vector *v, vector *ext) {
     // Check the elements are at least the same size
-    if (v->elem_s != ext->elem_s) {
+    if (v->elem_size != ext->elem_size) {
         return VEC_ERR_INVALID_SIZE;
     }
     // Check if the ext will fit in the current vector, if not, then realloc to the combined size
     if (v->len + ext->len >= v->cap) {
         if (vec_realloc(v, v->cap + ext->cap) < 0) return VEC_ERR_NOMEM;
     }
-    size_t old_len = v->len;
     v->len += ext->len;
     // Place contents of ext into vector
-    for (size_t i = old_len; i < v->len; i++) {
-        v->ptr[i] = ext->ptr[i - old_len];
-    }
+    memmove(_vec_slot(v, v->len), ext, ext->len * v->elem_size);
+
     return VEC_OK;
 }
 
@@ -161,34 +161,32 @@ int vec_insert(vector *v, size_t index, void *item) {
         return VEC_ERR_RANGE;
     }
     v->len++;
-    void *tmp = v->ptr[index];
-    v->ptr[index] = item;
+    void *tmp = _vec_slot(v, index);
+    memcpy(tmp, item, v->elem_size);
     for (size_t i = index + 1; i < v->len; i++) {
-        printf("vector: tmp = %d, i = %d\n", tmp, i);
-        v->ptr[i] = tmp;
-        if (i + 1 < v->len) tmp = v->ptr[i + 1];
+        memmove(_vec_slot(v, i), tmp, v->elem_size);
+        if (i + 1 < v->len) tmp = _vec_slot(v, i + 1);
     }
     return VEC_OK;
 }
 
 // Remove the item at the specified index, shifting all other elements to the left, and placing the value of the removed item in `out`
-int vec_remove(vector *v, size_t index, void **out) {
+int vec_remove(vector *v, size_t index, void *out) {
     if (v->len == 0) {
         return VEC_ERR_EMPTY;
     }
     if (index >= v->len) {
         return VEC_ERR_RANGE;
     }
-    if (out != NULL) *out = v->ptr[index];
+    if (out != NULL) memcpy(out, _vec_slot(v, index), v->elem_size);
     v->len--;
-    for (size_t i = index; i < v->len; i++) {
-        v->ptr[i] = v->ptr[i + 1];
-    } 
+    size_t count = v->len - index;
+    memmove(_vec_slot(v, index), _vec_slot(v, index + 1), count * v->elem_size);
     return VEC_OK;
 }
 
 // Get a reference to the item at index
-int vec_get(vector *v, size_t index, void **out) {
+int vec_get(const vector *v, size_t index, void *out) {
     if (v->len == 0) {
         return VEC_ERR_EMPTY;
     }
@@ -199,46 +197,28 @@ int vec_get(vector *v, size_t index, void **out) {
         return VEC_ERR_NULL;
     }
 
-    *out = v->ptr[index];
+    memcpy(out, _vec_slot(v, index), v->elem_size);
 
     return VEC_OK;
 }
 
 // Reverse the order of the vector in place
-void vec_reverse(vector *v) {
-    void *tmp;
+int vec_reverse(vector *v) {
+    void *tmp = malloc(v->elem_size);
+    if (tmp == NULL) return VEC_ERR_NOMEM;
     // Index from the beginning and end of the vector, once i==k the middle has been reached and can stop
     if (v->len <= 1) {
-        return;
+        return VEC_OK;
     }
     size_t k = v->len - 1;
     size_t i = 0;
     while (i < k) {
-        tmp = v->ptr[i];
-        v->ptr[i] = v->ptr[k];
-        v->ptr[k] = tmp;
+        memmove(tmp, _vec_slot(v, i), v->elem_size);
+        memmove(_vec_slot(v, i), _vec_slot(v, k), v->elem_size);
+        memmove(_vec_slot(v, k), tmp, v->elem_size);
         i++;
         k--;
     }
-}
-
-// Reverse the order of the vector but use malloc first.
-// NOTE: This is a bad method of doing this, the new malloc is not needed since values can be swapped in place
-int _vec_reverse_realloc(vector *v) {
-    void **v_new = malloc(v->cap * sizeof(v->elem_s));
-    if (v_new == NULL) {
-        perror("malloc");
-        return VEC_ERR_NOMEM;
-    }
-    ssize_t i = v->len - 1;
-    void **tmp = v_new;
-    while (i >= 0) {
-        tmp = v->ptr[i];
-        tmp++;
-        i--;
-    }
-
-    v->ptr = v_new;
 
     return VEC_OK;
 }
@@ -251,16 +231,15 @@ int vec_swap(vector *v, size_t index1, size_t index2) {
     if (index2 >= v->len) {
         return VEC_ERR_RANGE;
     }
-    void *tmp1 = v->ptr[index1];
-    void *tmp2 = v->ptr[index2];
-    v->ptr[index1] = tmp2;
-    v->ptr[index2] = tmp1;
+    void *tmp = malloc(v->elem_size);
+    memmove(tmp, _vec_slot(v, index1), v->elem_size);
+    memmove(_vec_slot(v, index1), _vec_slot(v, index2), v->elem_size);
+    memmove(_vec_slot(v, index2), tmp, v->elem_size);
 
     return VEC_OK;
 }
 
-// Clear the contents of the vector
+// Set the length of the vector to 0. Everything else is untouched, meaning the underlying data is still in the allocated buffer.
 void vec_clear(vector *v) {
     v->len = 0;
-    memset(v->ptr, 0, v->cap);
 }
