@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 
-// A Vector that will dynamically resize to fit its contents
+// A Vector that will dynamically resize to fit its contents. The data is always 0 initialized.
 typedef struct {
     // The pointer for the vector
     void *ptr;
@@ -51,10 +51,9 @@ char * vec_strerror(int err) {
     }
 }
 
-// Construction of the Vector
+// Construct the vector
 int vec_new(vector *v, size_t cap, size_t size) {
-    // Allocate memory for the Vector
-    // The returned pointer needs to be generic
+    // Allocate memory for the vector
     void *ptr = calloc(cap, size);
     if (ptr == NULL) {
         perror("malloc");
@@ -64,7 +63,6 @@ int vec_new(vector *v, size_t cap, size_t size) {
     v->cap = cap;
     v->elem_size = size;
     v->len = 0;
-    printf("vector: %p\n", v->ptr);
     return VEC_OK;
 }
 
@@ -74,19 +72,27 @@ void * _vec_slot(const vector *v, size_t index) {
 }
 
 // Free the allocated vector memory
-void vec_free(vector *v) {
+void vec_destroy(vector *v) {
+    if (v->cap == 0 || v == NULL) {
+        return;
+    }
     free(v->ptr);
+    v->ptr = NULL;
+    v->cap = 0;
+    v->len = 0;
+    v->elem_size = 0;
 }
 
 // Resize the vector to accomodate the new cap
 int vec_realloc(vector *v, size_t new_size) {
-    // If the vector does not contain any elements, then the size of its items is unknown and cannot be properly realloc'd
-    if (v->cap == 0) {
-        return VEC_ERR_UNKNOWN_SIZE;
-    }
+    size_t old_size = v->cap;
     v->cap = new_size;
-    void *tmp = realloc(v->ptr,  v->cap * sizeof(v->ptr));
+    void *tmp = realloc(v->ptr,  v->cap * v->elem_size);
     if (tmp == NULL) return VEC_ERR_NOMEM;
+    // Zero out any newly added memory
+    if (new_size > old_size) {
+        memset((unsigned char *)tmp + (old_size * v->elem_size), 0, (new_size - old_size) * v->elem_size);
+    }
     v->ptr = tmp;
     return VEC_OK;
 }
@@ -104,7 +110,7 @@ bool vec_is_empty(const vector *v) {
 }
 
 // Casts each element to an int. Only for debugging tests.
-void _vec_print(const vector *v) {
+void _vec_print_int(const vector *v) {
     printf("[");
     for (size_t i = 0; i < v->len; i++) {
         printf("%d", *(int *)_vec_slot(v, i));
@@ -115,8 +121,33 @@ void _vec_print(const vector *v) {
     printf("]\n");
 }
 
+// Casts each element to an int *. Only for debugging tests.
+void _vec_print_ptr(const vector *v) {
+    printf("[");
+    for (size_t i = 0; i < v->len; i++) {
+        printf("%p", (int *)_vec_slot(v, i));
+        if (i + 1 < v->len) {
+            printf(", ");
+        }
+    }
+    printf("]\n");
+}
+
+// Casts each element to an char *. Only for debugging tests.
+void _vec_print_char(const vector *v) {
+    printf("[");
+    for (size_t i = 0; i < v->len; i++) {
+        printf("'%c'", *(char *)_vec_slot(v, i));
+        if (i + 1 < v->len) {
+            printf(", ");
+        }
+    }
+    printf("]\n");
+}
+
+
 // Add an element to the end of the vector
-int vec_push(vector *v, void *item) {
+int vec_push(vector *v, const void *item) {
     // Check if the vector has space, if not, then resize it
     if ((v->len >= v->cap) && (vec_realloc(v, v->cap * 2) < 0)) {
         return VEC_ERR_NOMEM;
@@ -131,42 +162,55 @@ int vec_pop(vector *v, void *out) {
     if (v->len == 0) {
         return VEC_ERR_EMPTY;
     }
-    memcpy(out, _vec_slot(v, v->len - 1), v->elem_size);
+    if (out != NULL) memcpy(out, _vec_slot(v, v->len - 1), v->elem_size);
 
-    v->len -= 1;
+    v->len--;
 
     return VEC_OK;
 }
 
 // Extend the vector with the given vector
-int vec_extend(vector *v, vector *ext) {
+int vec_extend(vector *v, const vector *ext) {
     // Check the elements are at least the same size
     if (v->elem_size != ext->elem_size) {
         return VEC_ERR_INVALID_SIZE;
     }
     // Check if the ext will fit in the current vector, if not, then realloc to the combined size
     if (v->len + ext->len >= v->cap) {
-        if (vec_realloc(v, v->cap + ext->cap) < 0) return VEC_ERR_NOMEM;
+        if (vec_realloc(v, (v->cap + ext->cap) * 2) < 0) return VEC_ERR_NOMEM;
     }
-    v->len += ext->len;
     // Place contents of ext into vector
-    memmove(_vec_slot(v, v->len), ext, ext->len * v->elem_size);
+    memcpy(_vec_slot(v, v->len), ext->ptr, ext->len * v->elem_size);
+    v->len += ext->len;
+
+    return VEC_OK;
+}
+
+// Extend the vector with the given array with the same data type. The size of the elements in `ext` must
+// match the size of the elements in `v`.
+int vec_extend_with_array(vector *v, const void *ext, size_t len) {
+    // Check if the ext will fit in the current vector, if not, then realloc to the combined size
+    if (v->len + len >= v->cap) {
+        if (vec_realloc(v, (v->cap + len) * 2) < 0) return VEC_ERR_NOMEM;
+    }
+    // Place contents of ext into vector
+    memcpy(_vec_slot(v, v->len), ext, len * v->elem_size);
+    v->len += len;
 
     return VEC_OK;
 }
 
 // Insert the given item at the specified index, shifting all other elements to the right
-int vec_insert(vector *v, size_t index, void *item) {
+int vec_insert(vector *v, size_t index, const void *item) {
     if (index >= v->len) {
         return VEC_ERR_RANGE;
     }
-    v->len++;
+    if (v->len + 1 >= v->cap && vec_realloc(v, v->cap * 2)) return VEC_ERR_NOMEM;
     void *tmp = _vec_slot(v, index);
+    memmove(_vec_slot(v, index + 1), _vec_slot(v, index), (v->len - index) * v->elem_size);
     memcpy(tmp, item, v->elem_size);
-    for (size_t i = index + 1; i < v->len; i++) {
-        memmove(_vec_slot(v, i), tmp, v->elem_size);
-        if (i + 1 < v->len) tmp = _vec_slot(v, i + 1);
-    }
+    v->len++;
+
     return VEC_OK;
 }
 
@@ -187,15 +231,9 @@ int vec_remove(vector *v, size_t index, void *out) {
 
 // Get a reference to the item at index
 int vec_get(const vector *v, size_t index, void *out) {
-    if (v->len == 0) {
-        return VEC_ERR_EMPTY;
-    }
-    if (index >= v->len) {
-        return VEC_ERR_RANGE;
-    }
-    if (out == NULL) {
-        return VEC_ERR_NULL;
-    }
+    if (v->len == 0 || v->cap == 0) return VEC_ERR_EMPTY;
+    if (index >= v->len) return VEC_ERR_RANGE;
+    if (out == NULL) return VEC_ERR_NULL;
 
     memcpy(out, _vec_slot(v, index), v->elem_size);
 

@@ -2,11 +2,18 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "build",
+      "label": "build vector",
       "type": "shell",
-      "command": "mkdir -p build && gcc -g -O0 -Wall -Wextra ${workspaceFolder}/src/*.c -o ${workspaceFolder}/build/main",
+      "command": "mkdir -p build && gcc -g -O0 -Wall -Wextra ${workspaceFolder}/src/vector.c -o ${workspaceFolder}/build/vector",
       "group": { "kind": "build", "isDefault": true },
       "problemMatcher": ["$gcc"]
-    }
+    },
+    {
+      "label": "build String",
+      "type": "shell",
+      "command": "mkdir -p build && gcc -g -O0 -Wall -Wextra ${workspaceFolder}/src/String.c -o ${workspaceFolder}/build/String",
+      "group": { "kind": "build", "isDefault": true },
+      "problemMatcher": ["$gcc"]
+    },
   ]
 }
