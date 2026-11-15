@@ -21,33 +21,23 @@ typedef enum {
     VEC_ERR_EMPTY,
     VEC_ERR_RANGE,
     VEC_ERR_NOMEM,
-    VEC_ERR_UNKNOWN_SIZE,
     VEC_ERR_INVALID_SIZE,
 } vec_status;
 
 char * vec_strerror(int err) {
-    switch (err)
-    {
-    case 1:
-        "output parameter cannot be null";
-        break;
-    case 2:
-        "vector is empty";
-        break;
-    case 3:
-        "invalid index";
-        break;
-    case 4:
-        "out of memory";
-        break;
-    case 5:
-        "unknown element size";
-    case 6:
-        "provided item does not match size of elements";
-        break;
-    default:
-        "unknown error";
-        break;
+    switch (err) {
+        case 1:
+            return "output parameter cannot be null";
+        case 2:
+            return "vector is empty";
+        case 3:
+            return "invalid index";
+        case 4:
+            return "out of memory";
+        case 5:
+            return "provided item does not match size of elements";
+        default:
+            return "unknown error";
     }
 }
 
@@ -145,11 +135,12 @@ void _vec_print_char(const vector *v) {
     printf("]\n");
 }
 
-
 // Add an element to the end of the vector
 int vec_push(vector *v, const void *item) {
     // Check if the vector has space, if not, then resize it
-    if ((v->len >= v->cap) && (vec_realloc(v, v->cap * 2) < 0)) {
+    if ((v->cap == 0) && vec_realloc(v, 4) < 0) {
+        return VEC_ERR_NOMEM;
+    } else if ((v->len >= v->cap) && (vec_realloc(v, v->cap * 2) < 0)) {
         return VEC_ERR_NOMEM;
     }
     memcpy(_vec_slot(v, v->len), item, v->elem_size);
@@ -176,8 +167,10 @@ int vec_extend(vector *v, const vector *ext) {
         return VEC_ERR_INVALID_SIZE;
     }
     // Check if the ext will fit in the current vector, if not, then realloc to the combined size
-    if (v->len + ext->len >= v->cap) {
-        if (vec_realloc(v, (v->cap + ext->cap) * 2) < 0) return VEC_ERR_NOMEM;
+    if ((v->cap == 0) && vec_realloc(v, 4 + ext->len) < 0) {
+        return VEC_ERR_NOMEM;
+    } else if ((v->len + ext->len >= v->cap) && vec_realloc(v, (v->cap + ext->cap) * 2) < 0) {
+        return VEC_ERR_NOMEM;
     }
     // Place contents of ext into vector
     memcpy(_vec_slot(v, v->len), ext->ptr, ext->len * v->elem_size);
@@ -187,7 +180,7 @@ int vec_extend(vector *v, const vector *ext) {
 }
 
 // Extend the vector with the given array with the same data type. The size of the elements in `ext` must
-// match the size of the elements in `v`.
+// match the size of the elements in `v`; otherwise undefined behavior can occur.
 int vec_extend_with_array(vector *v, const void *ext, size_t len) {
     // Check if the ext will fit in the current vector, if not, then realloc to the combined size
     if (v->len + len >= v->cap) {

@@ -474,6 +474,62 @@ int test_vec_clear() {
     return 0;
 }
 
+int test_zero_capacity() {
+    vector v1;
+    if (vec_new(&v1, 0, sizeof(int)) < 0) return -1;
+    assert(vec_cap(&v1) == 0);
+    assert(vec_len(&v1) == 0);
+
+    // A push should trigger a reallocation
+    for (size_t i = 0; i < 3; i++) {
+        assert(vec_push(&v1, &i) == 0);
+    }
+    assert(vec_cap(&v1) == 4);
+    assert(vec_len(&v1) == 3);
+
+    vector v2;
+    if (vec_new(&v2, 0, sizeof(int)) < 0) return -1;
+    assert(vec_cap(&v2) == 0);
+    assert(vec_len(&v2) == 0);
+
+    // The vector that will extend v2
+    vector v3;
+    if (vec_new(&v3, 3, sizeof(int)) < 0) return -1;
+    assert(vec_cap(&v3) == 3);
+    assert(vec_len(&v3) == 0);
+    for (size_t i = 0; i < v3.cap; i++) {
+        assert(vec_push(&v3, &i) == 0);
+    }
+    assert(vec_cap(&v3) == 3);
+    assert(vec_len(&v3) == 3);
+
+    // An extend should trigger a reallocation
+    assert(vec_extend(&v2, &v3) == 0);
+    assert(vec_cap(&v2) == 4 + v3.len);
+    assert(vec_len(&v2) == 3);
+
+    vector v4;
+    if (vec_new(&v4, 0, sizeof(int)) < 0) return -1;
+    assert(vec_cap(&v4) == 0);
+    assert(vec_len(&v4) == 0);
+
+    // The array that will extend v4
+    int vals[] = {0, 1, 2, 3};
+    size_t vals_len = 4;
+
+    // An extend w/ array should trigger a reallocation
+    assert(vec_extend_with_array(&v4, &vals, vals_len) == 0);
+    assert(vec_cap(&v4) == 4 + vals_len);
+    assert(vec_len(&v4) == 4);
+
+    vec_destroy(&v1);
+    vec_destroy(&v2);
+    vec_destroy(&v3);
+    vec_destroy(&v4);
+
+    return 0;
+}
+
 int test_empty() {
     vector v;
     if (vec_new(&v, 3, sizeof(int)) < 0) return -1;
@@ -539,7 +595,7 @@ int test_max_capacity() {
     assert(vec_len(&v) == 0);
     assert(vec_is_empty(&v) == true);
 
-    for (size_t i = 0; i < v.len; i++) {
+    for (size_t i = 0; i < v.cap; i++) {
         assert(vec_push(&v, &i) == 0);
     }
     assert(vec_cap(&v) == 15);
@@ -574,13 +630,14 @@ int test_max_capacity() {
         assert(vec_is_empty(&v) == false);
     }
 
-    for (size_t i = 0; i < v.len; i++) {
+    size_t len = v.len;
+    for (size_t i = 0; i < len; i++) {
         int out;
         assert(vec_pop(&v, &out) == 0);
         ASSERT_MSG(out == (int)(14 - i), "expected %lu at index %lu, found %d", 14 - i, i, out);
         assert(vec_len(&v) == 14 - i);
         assert(vec_cap(&v) == 15);
-        if (i < 13) {
+        if (i < 14) {
             assert(vec_is_empty(&v) == false);
         } else {
             assert(vec_is_empty(&v) == true);
@@ -588,21 +645,21 @@ int test_max_capacity() {
         
     }
 
-    for (size_t i = 0; i < v.len; i++) {
+    for (size_t i = 0; i < v.cap; i++) {
         assert(vec_push(&v, &i) == 0);
     }
     assert(vec_cap(&v) == 15);
     assert(vec_len(&v) == 15);
     assert(vec_is_empty(&v) == false); 
 
-    size_t len = v.len;
+    len = v.len;
     for (size_t i = 0; i < len; i++) {
         int out;
         assert(vec_remove(&v, 0, &out) == 0);
         ASSERT_MSG(out == (int)i, "expected %lu at index %lu, found %d", i, i, out);
         assert(vec_len(&v) == 14 - i);
         assert(vec_cap(&v) == 15);
-        if (i < 13) {
+        if (i < 14) {
             assert(vec_is_empty(&v) == false);
         } else {
             assert(vec_is_empty(&v) == true);
@@ -610,7 +667,7 @@ int test_max_capacity() {
         
     }
 
-    for (size_t i = 0; i < v.len; i++) {
+    for (size_t i = 0; i < v.cap; i++) {
         assert(vec_push(&v, &i) == 0);
     }
     assert(vec_cap(&v) == 15);
@@ -620,9 +677,9 @@ int test_max_capacity() {
     int out;
     assert(vec_swap(&v, 0, 4) == 0);
     assert(vec_get(&v, 0, &out) == 0);
-    ASSERT_MSG(out == 0, "expected 0, found %d", out);
+    ASSERT_MSG(out == 4, "expected 0, found %d", out);
     assert(vec_get(&v, 4, &out) == 0);
-    ASSERT_MSG(out == 4, "expected 4, found %d", out);
+    ASSERT_MSG(out == 0, "expected 4, found %d", out);
 
     vec_destroy(&v);
 
@@ -833,9 +890,10 @@ int main()
     TEST_STATUS(test_vec_swap());
     TEST_STATUS(test_vec_clear());
 
+    TEST_STATUS(test_zero_capacity());
     TEST_STATUS(test_empty());
     TEST_STATUS(test_one_element());
-    TEST_STATUS(test_max_capacity);
+    TEST_STATUS(test_max_capacity());
 
     TEST_STATUS(test_vec_ptr());
     TEST_STATUS(test_vec_char());
