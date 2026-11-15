@@ -1,159 +1,49 @@
-#include <stdio.h>
-#include <stdbool.h>
-#include <assert.h>
-#include "String.h"
+#include "include/Strings.h"
 
-#define ASSERT_MSG(cond, ...)                                     \
-    do {                                                          \
-        if (!(cond)) {                                            \
-            fprintf(stderr, "%s:%d: %s: assertion '%s' failed: ", \
-                __FILE__, __LINE__, __func__, #cond);             \
-            fprintf(stderr, __VA_ARGS__);                         \
-            fputc('\n', stderr);                                  \
-            abort();                                              \
-        }                                                         \
-    } while (0)
 
-#define TEST_STATUS(test)                               \
-    do {                                                \
-        if (test < 0) {                                 \
-            fprintf(stderr, "%s ... FAILED\n", #test);  \
-        } else {                                        \
-            fprintf(stderr, "%s ... SUCCESS\n", #test); \
-        }                                               \
-    } while (0)
-
-int test_string_new() {
-    String s;
-    char *str = "Hello, World!\n";
-    assert(string_new(&s, str) == 0);
-    ASSERT_MSG(string_len(&s) == get_str_len(str), "expected 14, found %lu", string_len(&s));
-
-    string_destroy(&s);
-
-    return 0;
+size_t string_len(const String *s) {
+    return s->v.len;
 }
 
-int test_string_null() {
-    String s;
-    char *str = "";
-    assert(string_new(&s, str) == 0);
-    assert(string_len(&s) == get_str_len(str));
+int string_new(String *s, char *str) {
+    size_t len = (str == NULL) ? 0 : get_str_len(str);
+    if (vec_new(&s->v, len, sizeof(char)) < 0) return MID_ERR_NOMEM;
+    if ((len > 0) && (vec_extend_with_array(&s->v, str, len) < 0)) return MID_ERR_NOMEM;
 
-    string_destroy(&s);
-
-    return 0;
+    return MID_OK;
 }
 
-int test_string_push_str() {
-    String s;
-    char *str = "";
-    assert(string_new(&s, str) == 0);
-    assert(string_len(&s) == 0);
-
-    char *str_ext = "The quick brown fox jumps over the lazy dog!?\n";
-
-    assert(string_push_str(&s, str_ext) == 0);
-    assert(string_len(&s) == get_str_len(str_ext));
-
-    string_destroy(&s);
-
-    return 0;
+void string_destroy(String *s) {
+    vec_destroy(&s->v);
 }
 
-int test_string_push() {
-    String s;
-    char *str = "The quick brown fox jumps over the lazy dog!?\n";
-    assert(string_new(&s, str) == 0);
-    assert(string_len(&s) == get_str_len(str));
-
-    char str_ext = 'Y';
-
-    assert(string_push(&s, str_ext) == 0);
-    assert(string_len(&s) == get_str_len(str) + 1);
-
-    char *new_str = "The quick brown fox jumps over the lazy dog!?\nY";
-    for (size_t i = 0; i < string_len(&s); i++) {
-        char *c_ptr = (char *)&s.v.ptr[i];
-        if (c_ptr == NULL) return -1;
-        ASSERT_MSG(*c_ptr == new_str[i], "expected %c at index %lu, found %c", new_str[i], i, *c_ptr);
-    }
-
-    string_destroy(&s);
-
-    return 0;
-}
-
-int test_string_pop() {
-    String s;
-    char *str = "The quick brown fox jumps over the lazy dog!?\n";
-    assert(string_new(&s, str) == 0);
-    assert(string_len(&s) == get_str_len(str));
-
+int string_push_str(String *s, char *str) {
     size_t len = get_str_len(str);
-    for (size_t i = 0; i < len; i++) {
-        char out;
-        assert(string_pop(&s, &out) == 0);
-        assert(string_len(&s) == (len - 1) - i);
-        char c = str[(len - 1) - i];
-        ASSERT_MSG(out == c, "expected '%c' at index %lu, found '%c'", c, i, out);
-    }
-    ASSERT_MSG(str[len - 1] == '\n', "the original str was mutated");
-    
-    string_destroy(&s);
+    int ret = vec_extend_with_array(&s->v, str, len);
+    if (ret < 0) return ret;
 
-    return 0;
+    return MID_OK;
 }
 
-int test_string_remove() {
-    String s;
-    char *str = "The quick brown fox jumps over the lazy dog!?\n";
-    assert(string_new(&s, str) == 0);
-    assert(string_len(&s) == get_str_len(str));
+int string_push(String *s, char c) {
+    int ret = vec_push(&s->v, &c);
+    if (ret < 0) return ret;
 
-    size_t len = get_str_len(str);
-    for (size_t i = 0; i < len; i++) {
-        char out;
-        assert(string_remove(&s, 0, &out) == 0);
-        assert(string_len(&s) == (len - 1) - i);
-        char c = str[i];
-        ASSERT_MSG(out == c, "expected '%c' at index %lu, found '%c'", c, i, out);
-    }
-    ASSERT_MSG(str[0] == 'T', "the original str was mutated");
-
-    string_destroy(&s);
-
-    return 0;
+    return MID_OK;
 }
 
-int test_string_insert() {
-    String s;
-    char *str = "The quick brown fox jumps over the lazy dog!?\n";
-    assert(string_new(&s, str) == 0);
-    assert(string_len(&s) == get_str_len(str));
-
-    char c_a = 'A';
-    char *str_a = "The quickA brown fox jumps over the lazy dog!?\n";
-    assert(string_insert(&s, 9, &c_a) == 0);
-    for (size_t i = 0; i < s.v.len; i++) {
-        char c = *(char *)_vec_slot(&s.v, i);
-        ASSERT_MSG(c == str_a[i], "expected '%c' at index %lu, found '%c'", str_a[i], i, c);
-    }
-
-    string_destroy(&s);
-
-    return 0;
+int string_pop(String *s, char *out) {
+    return vec_pop(&s->v, out);
 }
 
-int main()
-{
-    TEST_STATUS(test_string_new());
-    TEST_STATUS(test_string_null());
-    TEST_STATUS(test_string_push_str());
-    TEST_STATUS(test_string_push());
-    TEST_STATUS(test_string_pop());
-    TEST_STATUS(test_string_remove());
-    TEST_STATUS(test_string_insert());
+int string_remove(String *s, size_t index, char *out) {
+    return vec_remove(&s->v, index, out);
+}
 
-    return 0;
+int string_insert(String *s, size_t index, const char *c) {
+    return vec_insert(&s->v, index, c);
+}
+
+int string_get(const String *s, size_t index, char *out) {
+    return vec_get(&s->v, index, &out);
 }
