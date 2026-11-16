@@ -794,18 +794,18 @@ int test_vec_char() {
     ASSERT_MSG(v.len == 14, "expected length of 14, found %lu", v.len);
 
     for (size_t i = 0; i < v.len; i++) {
-        int *out = NULL;
+        char out;
         assert(vec_get(&v, i, &out) == 0);
-        ASSERT_MSG(out == vals[i], "expected %s at index %lu, found %s", vals[i], i, out);
+        ASSERT_MSG(out == vals[i], "expected '%c' at index %lu, found '%c'", vals[i], i, out);
         assert(vec_len(&v) == 14);  
         assert(vec_cap(&v) == 14);
     }
 
     assert(vec_reverse(&v) == 0);
     for (size_t i = 0; i < v.len; i++) {
-        int *out = NULL;
+        char out;
         assert(vec_get(&v, i, &out) == 0);
-        ASSERT_MSG(out == vals[13 - i], "expected %s at index %lu, found %s", vals[4 - i], i, out);
+        ASSERT_MSG(out == vals[13 - i], "expected '%c' at index %lu, found '%c'", vals[4 - i], i, out);
         assert(vec_len(&v) == 14);
         assert(vec_cap(&v) == 14);
         assert(vec_is_empty(&v) == false);
@@ -813,9 +813,9 @@ int test_vec_char() {
 
     assert(vec_reverse(&v) == 0);
     for (size_t i = 0; i < v.len; i++) {
-        int *out = NULL;
+        char out;
         assert(vec_get(&v, i, &out) == 0);
-        ASSERT_MSG(out == vals[i], "expected %s at index %lu, found %s", vals[i], i, out);
+        ASSERT_MSG(out == vals[i], "expected '%c' at index %lu, found '%c'", vals[i], i, out);
         assert(vec_len(&v) == 14);
         assert(vec_cap(&v) == 14);
         assert(vec_is_empty(&v) == false);
@@ -823,9 +823,9 @@ int test_vec_char() {
 
     size_t len = v.len;
     for (size_t i = 0; i < len; i++) {
-        int *out = NULL;
+        char out;
         assert(vec_pop(&v, &out) == 0);
-        ASSERT_MSG(out == vals[13 - i],  "expected %s at index %lu, found %s", vals[4 - i], i, out);
+        ASSERT_MSG(out == vals[13 - i],  "expected '%c' at index %lu, found '%c'", vals[4 - i], i, out);
         assert(vec_len(&v) == 13 - i);
         assert(vec_cap(&v) == 14);
         if (i < 13) {
@@ -844,9 +844,9 @@ int test_vec_char() {
 
     len = v.len;
     for (size_t i = 0; i < len; i++) {
-        int *out = NULL;
+        char out;
         assert(vec_remove(&v, 0, &out) == 0);
-        ASSERT_MSG(out == vals[i], "expected %s at index %lu, found %s", vals[i], i, out);
+        ASSERT_MSG(out == vals[i], "expected '%c' at index %lu, found '%c'", vals[i], i, out);
         assert(vec_len(&v) == 13 - i);
         assert(vec_cap(&v) == 14);
         if (i < 13) {
@@ -863,12 +863,12 @@ int test_vec_char() {
     assert(vec_len(&v) == 14);
     assert(vec_is_empty(&v) == false);
 
-    int *out = NULL;
+    char out;
     assert(vec_swap(&v, 0, 4) == 0);
     assert(vec_get(&v, 0, &out) == 0);
-    ASSERT_MSG(out == vals[4], "expected %s, found %s", vals[4], out);
+    ASSERT_MSG(out == vals[4], "expected '%c', found '%c'", vals[4], out);
     assert(vec_get(&v, 4, &out) == 0);
-    ASSERT_MSG(out == vals[0], "expected %s, found %s", vals[0], out);
+    ASSERT_MSG(out == vals[0], "expected '%c', found '%c'", vals[0], out);
 
     vec_destroy(&v);
 
