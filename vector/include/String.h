@@ -70,12 +70,21 @@ int string_remove(String *s, size_t index, char *out);
 
 /// @brief Insert the given `char` at the given @p index. All `char`s at and after @p index will be shifted right. This may grow the buffer.
 /// @param[in,out] s     The `String` to modify. Must be initialized.
-/// @param[in]     index Position to insert at, must be in the range [0, len].
+/// @param[in]     index Position to insert at, must be in the range [0, len).
 /// @param[in]     c     Points to the `char` to insert. Read-only copied into the String. Must not be NULL.
 /// @return `MID_OK` on success.
 /// @return `MID_ERR_RANGE` if @p index is greater than `String` length.
 /// @return `MID_ERR_NOMEM` if growing the buffer fails. @p s is unchanged.
-int string_insert(String *s, size_t index, const char *c);
+int string_insert(String *s, size_t index, const char c);
+
+/// @brief Insert the given `char` at the given @p index. All `char`s at and after @p index will be shifted right. This may grow the buffer.
+/// @param[in,out] s     The `String` to modify. Must be initialized.
+/// @param[in]     index Position to insert at, must be in the range [0, len).
+/// @param[in]     c     Points to the `char` to insert. Read-only copied into the String. Must not be NULL.
+/// @return `MID_OK` on success.
+/// @return `MID_ERR_RANGE` if @p index is greater than `String` length.
+/// @return `MID_ERR_NOMEM` if growing the buffer fails. @p s is unchanged.
+int string_insert_str(String *s, size_t index, const char *str);
 
 /// @brief  Retrieve the `char` at @p index.
 /// @param[in,out] s     The `String` to modify. Must be initialized.

@@ -38,6 +38,8 @@ size_t vec_cap(const vector *v);
 
 bool vec_is_empty(const vector *v);
 
+void _vec_print_int(const vector *v);
+
 // Casts each element to an int *. Only for debugging tests.
 void _vec_print_ptr(const vector *v);
 
@@ -57,8 +59,24 @@ int vec_extend(vector *v, const vector *ext);
 // match the size of the elements in `v`; otherwise undefined behavior can occur.
 int vec_extend_with_array(vector *v, const void *ext, size_t len);
 
-// Insert the given item at the specified index, shifting all other elements to the right
+/// @brief Insert @p item at @p index, shifting all other elements to the right. This will trigger a reallocation if `vector` length plus @p ext_len is >= capacity.
+/// @param[in,out] v The `vector` to modifyt. Must be initialized.
+/// @param[in] index Position to insert at, must be in the range [0, len).
+/// @param[in] item  Pointer to the item to copy into the `vector`. Must be the same size as existing elements.
+/// @return `MID_OK` on success.
+/// @return `MID_ERR_RANGE` if @p index is greater than `vector` length.
+/// @return `MID_ERR_NOMEM` if growing the buffer fails. @p v is unchanged.
 int vec_insert(vector *v, size_t index, const void *item);
+
+/// @brief Insert an array into the `vector`, shifting existing elements to the right. This will trigger a reallocation if @p ext does not fit in the existing buffer.
+/// @param[in,out] v   The `vector` to modifyt. Must be initialized.
+/// @param[in] index   Position to insert at, must be in the range [0, len).
+/// @param[in] ext     Pointer to the array to add into the `vector`.
+/// @param[in] ext_len The length of @p ext.
+/// @return `MID_OK` on success.
+/// @return `MID_ERR_RANGE` if @p index is greater than `vector` length.
+/// @return `MID_ERR_NOMEM` if growing the buffer fails. @p v is unchanged.
+int vec_insert_ext(vector *v, size_t index, const void *ext, size_t ext_len);
 
 // Remove the item at the specified index, shifting all other elements to the left, and placing the value of the removed item in `out`
 int vec_remove(vector *v, size_t index, void *out);

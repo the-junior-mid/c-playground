@@ -167,6 +167,20 @@ int vec_insert(vector *v, size_t index, const void *item) {
     return MID_OK;
 }
 
+int vec_insert_ext(vector *v, size_t index, const void *ext, size_t ext_len) {
+    if (index >= v->len) {
+        return MID_ERR_RANGE;
+    }
+    if (v->len + ext_len >= v->cap && vec_realloc(v, (v->cap + ext_len) * 2)) return MID_ERR_NOMEM;
+    // Move the elements at the given index so the ext can fit
+    memmove(_vec_slot(v, index + ext_len), _vec_slot(v, index), (v->len - index) * v->elem_size);
+    // Now copy the ext into place
+    memcpy(_vec_slot(v, index), ext, (ext_len) * v->elem_size);
+    v->len += ext_len;
+
+    return MID_OK;
+}
+
 // Remove the item at the specified index, shifting all other elements to the left, and placing the value of the removed item in `out`
 int vec_remove(vector *v, size_t index, void *out) {
     if (v->len == 0) {

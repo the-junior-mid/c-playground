@@ -40,8 +40,13 @@ int string_remove(String *s, size_t index, char *out) {
     return vec_remove(&s->v, index, out);
 }
 
-int string_insert(String *s, size_t index, const char *c) {
-    return vec_insert(&s->v, index, c);
+int string_insert(String *s, size_t index, const char c) {
+    return vec_insert(&s->v, index, &c);
+}
+
+int string_insert_str(String *s, size_t index, const char *str) {
+    size_t len = get_str_len(str);
+    return vec_insert_ext(&s->v, index, str, len);
 }
 
 int string_get(const String *s, size_t index, char *out) {

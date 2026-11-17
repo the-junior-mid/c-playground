@@ -297,6 +297,62 @@ int test_vec_insert() {
     return 0;
 }
 
+int test_vec_insert_ext() {
+    vector v;
+    assert(vec_new(&v, 20, sizeof(int)) == 0);
+    ASSERT_MSG(v.cap == 20, "expected capacity of 20, found %lu", v.cap);
+    ASSERT_MSG(v.len == 0, "expected length of 0, found %lu", v.len);
+
+    for (size_t i = 0; i < 8; i++) {
+        assert(vec_push(&v, &i) == 0);
+    }
+    ASSERT_MSG(v.len == 8, "expected length of 8, found %lu", v.len);
+
+    // Extensions to insert
+    int ext1[] = {2, 4, 6, 8};
+    int ext2[] = {3, 6, 9, 12, 15};
+    int ext3[] = {5, 10, 15, 20, 25, 30};
+
+    // What the vector should look like at each stage
+    int vals1[] = {2, 4, 6, 8, 0, 1, 2, 3, 4, 5, 6, 7};
+    int vals2[] = {2, 4, 6, 8, 0, 3, 6, 9, 12, 15, 1, 2, 3, 4, 5, 6, 7};
+    int vals3[] = {2, 4, 6, 8, 0, 3, 6, 9, 12, 15, 1, 2, 3, 4, 5, 6, 7, 5, 10, 15, 20, 25};
+
+    assert(vec_insert_ext(&v, 0, (void *)&ext1, 4) == 0);
+    ASSERT_MSG(v.cap == 20, "expected capacity of 20, found %lu", v.cap);
+    ASSERT_MSG(v.len == 12, "expected length of 12, found %lu", v.len);
+    for (size_t i = 0; i < v.len; i++) {
+        int *val = _vec_slot(&v, i);
+        int expected = vals1[i];
+        ASSERT_MSG(*val == expected, "expected %d, found %d", expected, *val);
+    }
+
+    assert(vec_insert_ext(&v, 5, (void *)&ext2, 5) == 0);
+    ASSERT_MSG(v.cap == 20, "expected capacity of 20, found %lu", v.cap);
+    ASSERT_MSG(v.len == 17, "expected length of 17, found %lu", v.len);
+    for (size_t i = 0; i < v.len; i++) {
+        int *val = _vec_slot(&v, i);
+        int expected = vals2[i];
+        ASSERT_MSG(*val == expected, "expected %d at index %lu, found %d", expected, i, *val);
+    }
+
+    // Insert one more to force a reallocation
+    assert(vec_insert_ext(&v, 17, (void *)&ext3, 6) == 0);
+    _vec_print_int(&v);
+    ASSERT_MSG(v.cap == (20 + 6) * 2, "expected capacity of 40, found %lu", v.cap);
+    ASSERT_MSG(v.len == 23, "expected length of 22, found %lu", v.len);
+    for (size_t i = 0; i < v.len; i++) {
+        int *val = _vec_slot(&v, i);
+        int expected = vals3[i];
+        ASSERT_MSG(*val == expected, "expected %d, found %d", expected, *val);
+    }
+    _vec_print_int(&v);
+
+    vec_destroy(&v);
+
+    return 0;
+}
+
 int test_vec_remove() {
     vector v;
     assert(vec_new(&v, 11, sizeof(int)) == 0);
@@ -884,6 +940,7 @@ int main()
     TEST_STATUS(test_vec_extend());
     TEST_STATUS(test_vec_extend_with_array());
     TEST_STATUS(test_vec_insert());
+    TEST_STATUS(test_vec_insert_ext());
     TEST_STATUS(test_vec_remove());
     TEST_STATUS(test_vec_get());
     TEST_STATUS(test_vec_reverse());

@@ -144,6 +144,25 @@ int test_string_insert() {
     return 0;
 }
 
+int test_string_insert_str() {
+    String s;
+    char *str1 = "The quick brown fox and then dies\n";
+    char *str2 = " jumps over the lazy dog!?\n";
+    assert(string_new(&s, str1) == 0);
+    assert(string_len(&s) == get_str_len(str1));
+
+    char *str3 = "The quick brown fox jumps over the lazy dog!?\n and then dies\m";
+    assert(string_insert_str(&s, 18, &str3) == 0);
+    for (size_t i = 0; i < s.v.len; i++) {
+        char c = *(char *)_vec_slot(&s.v, i);
+        ASSERT_MSG(c == str3[i], "expected '%c' at index %lu, found '%c'", str3[i], i, c);
+    }
+
+    string_destroy(&s);
+
+    return 0;
+}
+
 int main()
 {
     TEST_STATUS(test_string_new());
