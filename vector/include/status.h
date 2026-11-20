@@ -8,6 +8,7 @@ typedef enum {
     MID_ERR_RANGE,
     MID_ERR_NOMEM,
     MID_ERR_INVALID_SIZE,
+    MID_ERR_TYPE,
 } mid_status;
 
 /// @brief Convert the error number into a string detailing the reason for the error.
@@ -21,6 +22,7 @@ static inline char * mid_strerror(int err) {
         case MID_ERR_RANGE:        return "index out of range";
         case MID_ERR_NOMEM:        return "out of memory";
         case MID_ERR_INVALID_SIZE: return "size is invalid (size does not match)";
+        case MID_ERR_TYPE:         return "invalid type for hm_value";
         default:                   return "unknown error";
     }
 }

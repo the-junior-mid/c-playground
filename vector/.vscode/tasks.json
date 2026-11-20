@@ -18,7 +18,7 @@
     {
       "label": "build hashmap",
       "type": "shell",
-      "command": "mkdir -p build && gcc -g -O0 -Wall -Wextra -Iinclude ${workspaceFolder}/tests/test_hashmap.c ${workspaceFolder}/src/hashmap.c -o ${workspaceFolder}/build/test_hashmap",
+      "command": "mkdir -p build && gcc -g -O0 -Wall -Wextra -Iinclude ${workspaceFolder}/tests/test_hashmap.c ${workspaceFolder}/src/hashmap.c -o ${workspaceFolder}/build/test_hashmap -lm",
       "group": { "kind": "build", "isDefault": true },
       "problemMatcher": ["$gcc"]
     },

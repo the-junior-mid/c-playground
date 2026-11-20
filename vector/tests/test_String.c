@@ -133,7 +133,7 @@ int test_string_insert() {
 
     char c_a = 'A';
     char *str_a = "The quickA brown fox jumps over the lazy dog!?\n";
-    assert(string_insert(&s, 9, &c_a) == 0);
+    assert(string_insert(&s, 9, c_a) == 0);
     for (size_t i = 0; i < s.v.len; i++) {
         char c = *(char *)_vec_slot(&s.v, i);
         ASSERT_MSG(c == str_a[i], "expected '%c' at index %lu, found '%c'", str_a[i], i, c);
@@ -152,7 +152,7 @@ int test_string_insert_str() {
     assert(string_len(&s) == get_str_len(str1));
 
     char *str3 = "The quick brown fox jumps over the lazy dog!?\n and then dies\m";
-    assert(string_insert_str(&s, 18, &str3) == 0);
+    assert(string_insert_str(&s, 18, str3) == 0);
     for (size_t i = 0; i < s.v.len; i++) {
         char c = *(char *)_vec_slot(&s.v, i);
         ASSERT_MSG(c == str3[i], "expected '%c' at index %lu, found '%c'", str3[i], i, c);

@@ -80,7 +80,7 @@
                 "ignoreFailures": true
                 }
             ],
-            "preLaunchTask": "build String"
+            "preLaunchTask": "build hashmap"
         },
     ]
 }

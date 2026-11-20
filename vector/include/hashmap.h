@@ -1,4 +1,6 @@
 #include <stdlib.h>
+#include <string.h>
+#include <stdbool.h>
 #include "status.h"
 
 
@@ -36,10 +38,13 @@ typedef struct {
 /// @return `size_t`
 size_t hm_get_power_of_two(size_t cap);
 
+void * _hm_get_slot(hashmap *hm, size_t index);
+size_t hm_hash(void *key, size_t capacity);
+
 /// @brief Perform the hashing function on the given key.
 /// @param[in] key Pointer to the key to be hashed.
 /// @return `MID_OK` on success.
-size_t hm_get_bin(hashmap *hm, void *key);
+size_t hm_get_bin(hashmap *hm, size_t hash);
 
 /// @brief Initialize a `hashmap` structure.
 /// @param[in,out] hm The `hashmap` to modify. Must be initialized.
@@ -83,8 +88,9 @@ int hm_clear(hashmap *hm);
 /// @brief Get a reference to the value associtated with @p key.
 /// @param[in,out] hm  The `hashmap` to modify. Must be initialized.
 /// @param[in]     key Pointer to the key to get the value of.
-/// @return `MID_OK` on success.
-int hm_get(hashmap *hm, void *key);
+/// @return `void *` on success.
+/// @return `NULL` otherwise.
+void * hm_get(hashmap *hm, void *key);
 
 /// @brief Get a reference to the key and value associtated with @p key.
 /// @param[in,out] hm  The `hashmap` to modify. Must be initialized.
