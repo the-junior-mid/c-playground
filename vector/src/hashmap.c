@@ -94,6 +94,36 @@ hm_slot * _hm_get_slot(const hashmap *hm, size_t bin) {
     return hm->slots + bin;
 }
 
+/// @brief Print the @p hm to `STDERR`.
+/// @param hm 
+void hm_print(hashmap *hm, size_t m) {
+    fprintf(stderr, "hashmap (%lu/%lu) {\n", hm->entries, hm->capacity);
+    size_t j = 0;
+    for (int bin = 0; (size_t)bin < hm->capacity; bin++) {
+        hm_slot *slot = _hm_get_slot(hm, bin);
+        if (slot->hash == 0) continue;
+        if (j % m == 0) {
+            if (j == hm->entries - 1) {
+                fprintf(stderr, "    %d: %s\n", slot->key.as.i, slot->val.as.s);
+            } else {
+                fprintf(stderr, "    %d: %s, ", slot->key.as.i, slot->val.as.s);
+            }
+        } else if (j % m <= (m - 1)) {
+            if (j % m == (m - 1)) {
+                fprintf(stderr, "%d: %s,\n", slot->key.as.i, slot->val.as.s);
+            } else if (j == hm->entries - 1) {
+                fprintf(stderr, "%d: %s\n", slot->key.as.i, slot->val.as.s);
+            } else {
+                fprintf(stderr, "%d: %s, ", slot->key.as.i, slot->val.as.s); 
+            }
+        } else {
+            fprintf(stderr, "\n");
+        }
+        j++;
+    }
+    fprintf(stderr, "}\n");
+}
+
 /// @brief Try to find the next empty slot. 
 /// @param hm 
 /// @param slots 
@@ -121,17 +151,16 @@ int hm_next_empty_slot(const hashmap *hm, hm_slot *slots, size_t bin, size_t *ou
 /// @param hm 
 /// @param slots 
 /// @param bin 
-int hm_matching_slot(const hashmap *hm, hm_slot *slots, size_t bin, size_t hash, size_t *out_bin) {
+int hm_matching_slot(const hashmap *hm, size_t bin, size_t hash, size_t *out_bin) {
     if (out_bin == NULL) return MID_ERR_NULL;
 
     size_t i = 0;
-    while (memcmp(slots + bin, &hash, sizeof(size_t)) != 0) {
+    while (memcmp(hm->slots + bin, &hash, sizeof(size_t)) != 0) {
         bin += 1;
-        if (bin > hm->capacity - 1) bin % hm->capacity;
+        if (bin > hm->capacity - 1) bin %= hm->capacity;
         i++;
         if (i > hm->capacity) {
-            LOG(WARN, "%lu slot(s) full", hm->capacity);
-            return MID_ERR_SLOTS;
+            break;
         }
     }
 
@@ -185,8 +214,9 @@ int hm_realloc(hashmap *hm) {
         };
         bin = new_bin;
         tmp[bin] = hm->slots[i];
-        printf("hmR[key %lu (%lu, %lu)] = %p\n", slot->key.as.i, slot->hash, bin, slot->val.as.s);
     }
+
+    free(hm->slots);
 
     hm->slots = tmp;
     hm->capacity = new_cap;
@@ -222,18 +252,20 @@ int hm_values(const hashmap *hm, void *out);
 
 /// @brief Clears out all key-value pairs, retaining any memory allocated for reuse.
 /// @param[in,out] hm The `hashmap` to modify. Must be initialized.
-/// @return `MID_OK` on success.
-int hm_clear(hashmap *hm);
+void hm_clear(hashmap *hm) {
+    memset(hm->slots, 0, hm->capacity * sizeof(hm_slot));
+}
 
 /// @brief Get a reference to the value associtated with @p key.
 /// @param[in,out] hm  The `hashmap` to modify. Must be initialized.
 /// @param[in]     key Pointer to the key to get the value of.
-/// @return `void *` on success.
+/// @return `hm_value *` on success.
 /// @return `NULL` otherwise.
-void * hm_get(const hashmap *hm, void *key, hm_type key_type) {
+hm_value * hm_get(const hashmap *hm, void *key, hm_type key_type) {
     if (hm_contains_key(hm, key, key_type)) {
         size_t hash = hm_hash(key, key_type);
-        return _hm_get_slot(hm, hm_get_bin(hm, hash)) + sizeof(hm_slot) - 8;
+        hm_slot *slot = _hm_get_slot(hm, hm_get_bin(hm, hash));
+        return &slot->val;
     } else {
         return NULL;
     }
@@ -242,9 +274,19 @@ void * hm_get(const hashmap *hm, void *key, hm_type key_type) {
 /// @param[in,out] hm  The `hashmap` to modify. Must be initialized.
 /// @param[in]     key Pointer to the key to get the value of.
 /// @return `MID_OK` on success.
-int hm_get_key_value(const hashmap *hm, void *key) {
-    // TODO: lookup the key in the table and then get its corresponding value, then return a read-only pointer to both
-    return MID_OK;
+int hm_get_key_value(const hashmap *hm, void *key, hm_type key_type, hm_value *out_key, hm_value *out_value) {
+    if (out_key == NULL) return MID_ERR_NULL;
+    if (out_value == NULL) return MID_ERR_NULL;
+    if (hm_contains_key(hm, key, key_type)) {
+        size_t hash = hm_hash(key, key_type);
+        hm_slot *slot = _hm_get_slot(hm, hm_get_bin(hm, hash));
+        if (slot == NULL) return MID_ERR_NOT_FOUND;
+        *out_key = slot->key;
+        *out_value = slot->val;
+        return MID_OK;
+    } else {
+        return MID_ERR_NOT_FOUND;
+    }
 }
 
 /// @brief Return a bool of whether the key is in the `hashmap`.
@@ -252,20 +294,19 @@ int hm_get_key_value(const hashmap *hm, void *key) {
 /// @param[in]     key Pointer to the key to get the value of.
 /// @return `bool`
 bool hm_contains_key(const hashmap *hm, void *key, hm_type key_type) {
+    if (hm->slots == NULL) return false;
     if (key == NULL) return false;
 
     size_t hash = hm_hash(key, key_type);
     size_t bin = hm_get_bin(hm, hash);
+    size_t new_bin;
+    int ret = hm_matching_slot(hm, bin, hash, &new_bin);
+    if (ret != 0) {
+        return false;
+    };
+    bin = new_bin;
     hm_slot *slot = _hm_get_slot(hm, bin);
-    if (slot == NULL) return false;
-    // if (slot->hash != hash) {
-    //     size_t new_bin;
-    //     int ret = hm_matching_slot(hm, hm->slots, bin, hash, &new_bin);
-    //     if (ret != 0) {
-    //         return ret;
-    //     };
-    //     bin = new_bin;
-    // };
+    if (slot == NULL || slot->hash == 0) return false;
     switch (slot->key.type)
     {
         case V_INT: return slot->key.as.i == *(int *)key;
@@ -282,7 +323,7 @@ bool hm_contains_key(const hashmap *hm, void *key, hm_type key_type) {
 /// @param[in]     value     Pointer to the value to store.
 /// @param[out]    out_value Pointer to store a previous value. If NULL then it is ignored.
 /// @return `MID_OK` on success.
-int hm_insert(hashmap *hm, void *key, hm_type key_type, void *value, hm_type val_type, void *out_value) {
+int hm_insert(hashmap *hm, void *key, hm_type key_type, void *value, hm_type val_type) {
     if ((hm->capacity == 0) || (hm->entries + 1 >= hm->capacity)) {
         int ret = hm_realloc(hm);
         if (ret < 0) return ret;
@@ -295,6 +336,56 @@ int hm_insert(hashmap *hm, void *key, hm_type key_type, void *value, hm_type val
         return ret;
     };
     bin = new_bin;
+    hm_slot slot;
+    slot.hash = hash;
+    slot.key.type = V_INT;
+    switch (V_INT)
+    {
+        case V_INT: memcpy(&slot.key.as.i, key, sizeof(int));
+            break;
+        case V_DOUBLE: memcpy(&slot.key.as.d, key, sizeof(double));
+            break;
+        case V_STR: memcpy(&slot.key.as.s, key, sizeof(char *));
+            break;
+        case V_PTR: memcpy(&slot.key.as.p, key, sizeof(void *));
+            break;
+        default: return MID_ERR_TYPE;
+    }
+    slot.val.type = val_type;
+    switch (val_type)
+    {
+        case V_INT: memcpy(&slot.val.as.i, value, sizeof(int));
+            break;
+        case V_DOUBLE: memcpy(&slot.val.as.d, value, sizeof(double));
+            break;
+        case V_STR: memcpy(&slot.val.as.s, value, sizeof(char *));
+            break;
+        case V_PTR: memcpy(&slot.val.as.p, value, sizeof(void *));
+            break;
+        default: return MID_ERR_TYPE;
+    }
+
+    memcpy(hm->slots + bin, &slot, sizeof(hm_slot));
+    hm->entries++;
+
+    return MID_OK;
+}
+
+/// @brief Insert a @p key and @p value pair into @p hm and overwrite any existing data.
+/// @param[in,out] hm        The `hashmap` to modify. Must be initialized.
+/// @param[in]     key       Pointer to the key.
+/// @param[in]     value     Pointer to the value to store.
+/// @param[out]    out_value Pointer to store a previous value. If NULL then it is ignored.
+/// @return `MID_OK` on success.
+/// @return `MID_ERR_TYPE` if an unknown `hm_type` was provided.
+/// @return `MID_ERR_NOMEM` if a reallocation fails.
+int hm_update(hashmap *hm, void *key, hm_type key_type, void *value, hm_type val_type, hm_slot *out_value) {
+    if ((hm->capacity == 0) || (hm->entries + 1 >= hm->capacity)) {
+        int ret = hm_realloc(hm);
+        if (ret < 0) return ret;
+    }
+    size_t hash = hm_hash(key, key_type);
+    size_t bin = hm_get_bin(hm, hash);
     hm_slot slot;
     slot.hash = hash;
     slot.key.type = V_INT;

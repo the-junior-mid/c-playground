@@ -7,8 +7,7 @@
 #ifndef MID_HASHMAP_H
 #define MID_HASHMAP_H
 
-static const unsigned char ZERO_HASH[8]; 
-
+static const unsigned char ZERO_HASH[8];
 
 typedef enum {V_INT=1, V_DOUBLE, V_STR, V_PTR} hm_type;
 
@@ -35,12 +34,30 @@ typedef struct {
     size_t capacity;
 } hashmap;
 
+typedef struct {
+    hm_slot *slots;
+    size_t bin;
+} hm_iter;
+
+/// @brief Initialize an iterator struct.
+/// @param hm 
+/// @return 
+int hm_iter_new(const hashmap *hm);
+
+/// @brief Iterates over the entries in the `hashmap` for an initialized iterator.
+/// @param iter 
+/// @return 
+bool hm_next(const hm_iter *iter);
+
+hm_slot * _hm_get_slot(const hashmap *hm, size_t index);
+
+void hm_print(hashmap *hm, size_t columns);
+
 /// @brief Get the nearest power of two for @p cap.
 /// @param cap The value to find the closest power of two.
 /// @return `size_t`
 size_t hm_get_power_of_two(size_t cap);
 
-hm_slot * _hm_get_slot(const hashmap *hm, size_t index);
 size_t hm_hash(void *key, hm_type key_type);
 
 /// @brief Perform the hashing function on the given key.
@@ -84,21 +101,20 @@ int hm_values(const hashmap *hm, void *out);
 
 /// @brief Clears out all key-value pairs, retaining any memory allocated for reuse.
 /// @param[in,out] hm The `hashmap` to modify. Must be initialized.
-/// @return `MID_OK` on success.
-int hm_clear(hashmap *hm);
+void hm_clear(hashmap *hm);
 
 /// @brief Get a reference to the value associtated with @p key.
 /// @param[in,out] hm  The `hashmap` to modify. Must be initialized.
 /// @param[in]     key Pointer to the key to get the value of.
-/// @return `void *` on success.
+/// @return `hm_value *` on success.
 /// @return `NULL` otherwise.
-void * hm_get(const hashmap *hm, void *key, hm_type key_type);
+hm_value * hm_get(const hashmap *hm, void *key, hm_type key_type);
 
 /// @brief Get a reference to the key and value associtated with @p key.
 /// @param[in,out] hm  The `hashmap` to modify. Must be initialized.
 /// @param[in]     key Pointer to the key to get the value of.
 /// @return `MID_OK` on success.
-int hm_get_key_value(const hashmap *hm, void *key);
+int hm_get_key_value(const hashmap *hm, void *key, hm_type key_type, hm_value *out_key, hm_value *out_value);
 
 /// @brief Return a bool of whether the key is in the `hashmap`.
 /// @param[in,out] hm  The `hashmap` to modify. Must be initialized.
@@ -112,7 +128,9 @@ bool hm_contains_key(const hashmap *hm, void *key, hm_type key_type);
 /// @param[in]     value     Pointer to the value to store.
 /// @param[out]    out_value Pointer to store a previous value. If NULL then it is ignored.
 /// @return `MID_OK` on success.
-int hm_insert(hashmap *hm, void *key, hm_type key_type, void *value, hm_type val_type,  void *out_value);
+int hm_insert(hashmap *hm, void *key, hm_type key_type, void *value, hm_type val_type);
+
+int hm_update(hashmap *hm, void *key, hm_type key_type, void *value, hm_type val_type,  hm_slot *out_value);
 
 /// @brief Remove the @p key from the map and return its value in @p out.
 /// @param[in,out]  hm  The `hashmap` to modify. Must be initialized.

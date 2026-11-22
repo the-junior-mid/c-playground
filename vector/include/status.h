@@ -10,6 +10,7 @@ typedef enum {
     MID_ERR_INVALID_SIZE,
     MID_ERR_TYPE,
     MID_ERR_SLOTS,
+    MID_ERR_NOT_FOUND,
 } mid_status;
 
 /// @brief Convert the error number into a string detailing the reason for the error.
@@ -25,6 +26,7 @@ static inline char * mid_strerror(int err) {
         case MID_ERR_INVALID_SIZE: return "size is invalid (size does not match)";
         case MID_ERR_TYPE:         return "invalid type for hm_value";
         case MID_ERR_SLOTS:        return "slots full";
+        case MID_ERR_NOT_FOUND:    return "not found";
         default:                   return "unknown error";
     }
 }
