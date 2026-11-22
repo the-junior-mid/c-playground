@@ -118,7 +118,7 @@ void hm_clear(hashmap *hm);
 /// @param[in]     key Pointer to the key to get the value of.
 /// @return `hm_value *` on success.
 /// @return `NULL` otherwise.
-hm_value * hm_get(const hashmap *hm, void *key, hm_type key_type);
+int hm_get(const hashmap *hm, void *key, hm_type key_type, hm_value *out_value);
 
 /// @brief Get a reference to the key and value associtated with @p key.
 /// @param[in,out] hm  The `hashmap` to modify. Must be initialized.
@@ -140,7 +140,7 @@ bool hm_contains_key(const hashmap *hm, void *key, hm_type key_type);
 /// @return `MID_OK` on success.
 int hm_insert(hashmap *hm, void *key, hm_type key_type, void *value, hm_type val_type);
 
-int hm_update(hashmap *hm, void *key, hm_type key_type, void *value, hm_type val_type,  hm_slot *out_value);
+int hm_update(hashmap *hm, void *key, hm_type key_type, void *value, hm_type val_type,  hm_value *out_value);
 
 /// @brief Remove the @p key from the map and return its value in @p out.
 /// @param[in,out]  hm  The `hashmap` to modify. Must be initialized.

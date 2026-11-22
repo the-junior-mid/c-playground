@@ -50,7 +50,7 @@ int test_hm_new() {
     return 0;
 }
 
-int test_hn_insert() {
+int test_hm_insert() {
     // track all key-value pairs
     pair pairs[256] = {0};
     // create the key-value pairs that will be used
@@ -119,6 +119,90 @@ int test_hn_insert() {
     return 0;
 }
 
+int test_hm_update() {
+    // track all key-value pairs
+    pair pairs0[128] = {0};
+    // create the key-value pairs that will be used
+    for (size_t i = 0; i < 128; i++) {
+        pairs0[i].key = (int)i;
+        pairs0[i].str = gen_str_val(4, i);
+    }
+
+    // track all key-value pairs
+    pair pairs1[128] = {0};
+    // create the key-value pairs that will be used
+    for (size_t i = 0; i < 128; i++) {
+        pairs1[i].key = (int)i;
+        pairs1[i].str = gen_str_val(6, i);
+    }
+
+    size_t strs_len = 0;
+    hashmap hm;
+    hm_new(&hm);
+    ASSERT_MSG(hm.slots == NULL, "hashmap initialized slots with non-null value");
+
+    // Fill the map, but do not cause a reallocation
+    for (size_t key = 0; key < 7; key++) {
+        char *val = pairs0[key].str;
+        assert(hm_insert(&hm, &key, V_INT, &val, V_STR) == 0);
+    }
+
+    // check all key/value pairs exist
+    for (size_t bin = 0; bin < hm.capacity; bin++) {
+        hm_slot *slot = _hm_get_slot(&hm, bin);
+        if (slot->hash == 0) continue;
+        int key = slot->key.as.i;
+        char *value = slot->val.as.s;
+        ASSERT_MSG(value == pairs0[key].str, "expected %p, found %p", pairs0[key].str, value);
+    }
+
+    // update all entries
+    for (size_t key = 0; key < 7; key++) {
+        char *val = pairs1[key].str;
+        hm_value value;
+        assert(hm_update(&hm, &key, V_INT, &val, V_STR, &value) == 0);
+        ASSERT_MSG(value.as.s == pairs0[key].str, "expected %p, found %p", pairs0[key].str, value.as.s);
+    }
+
+    // check all key/value pairs exist
+    for (size_t bin = 0; bin < hm.capacity; bin++) {
+        hm_slot *slot = _hm_get_slot(&hm, bin);
+        if (slot->hash == 0) continue;
+        int key = slot->key.as.i;
+        char *value = slot->val.as.s;
+        ASSERT_MSG(value == pairs1[key].str, "expected %p, found %p", pairs1[key].str, value);
+    }
+
+    // force reallocation
+    // can't use the same check as before since reallocating can lead to collisions
+    for (size_t key = 7; key < 14; key++) {
+        char *val = pairs0[key].str;
+        assert(hm_insert(&hm, &key, V_INT, &val, V_STR) == 0);
+    }
+
+    // check all key/value pairs exist
+    for (size_t bin = 0; bin < hm.capacity; bin++) {
+        hm_slot *slot = _hm_get_slot(&hm, bin);
+        if (slot->hash == 0) continue;
+        int key = slot->key.as.i;
+        char *value = slot->val.as.s;
+        ASSERT_MSG(value == pairs1[key].str, "expected %p, found %p", pairs1[key].str, value);
+    }
+
+
+    for (size_t i = 0; i < strs_len; i++) {
+        free(pairs0[i].str);
+    }
+
+    for (size_t i = 0; i < strs_len; i++) {
+        free(pairs1[i].str);
+    }
+
+    hm_destroy(&hm);
+
+    return 0;
+}
+
 int test_hm_contains_key() {
     // track all key-value pairs
     pair pairs[256] = {0};
@@ -177,10 +261,76 @@ int test_hm_contains_key() {
     return 0;
 }
 
+int test_hm_get() {
+    // track all key-value pairs
+    pair pairs[256] = {0};
+    // create the key-value pairs that will be used
+    for (size_t i = 0; i < 256; i++) {
+        pairs[i].key = (int)i;
+        pairs[i].str = gen_str_val(5, i);
+    }
+
+    size_t strs_len = 0;
+    hashmap hm;
+    hm_new(&hm);
+    ASSERT_MSG(hm.slots == NULL, "hashmap initialized slots with non-null value");
+
+    // make sure no keys are found
+    for (size_t key = 0; key < 8; key++) {
+        hm_value val;
+        assert(hm_get(&hm, &key, V_INT, &val) == MID_ERR_EMPTY);
+    }
+
+    // Fill the map
+    for (size_t key = 0; key < 7; key++) {
+        char *val = pairs[key].str;
+        assert(hm_insert(&hm, &key, V_INT, &val, V_STR) == 0);
+    }
+
+    // all values should be found
+    for (size_t key = 0; key < 7; key++) {
+        hm_value val;
+        assert(hm_get(&hm, &key, V_INT, &val) == 0);
+        ASSERT_MSG(val.as.s == pairs[key].str, "expected value '%s' for key '%lu', found '%s'", pairs[key].str, key, val.as.s);
+    }
+
+    // force a reallocation with new keys
+    for (size_t key = 7; key < 14; key++) {
+        char *val = pairs[key].str;
+        assert(hm_insert(&hm, &key, V_INT, &val, V_STR) == 0);
+    }
+
+    // all keys should be found
+    for (size_t key = 0; key < 14; key++) {
+        hm_value val;
+        assert(hm_get(&hm, &key, V_INT, &val) == 0);
+        ASSERT_MSG(val.as.s == pairs[key].str, "expected value '%s' for key '%lu', found '%s'", pairs[key].str, key, val.as.s);
+    }
+
+    // clear the map
+    hm_clear(&hm);
+
+    // no values should be found
+    for (size_t key = 0; key < 14; key++) {
+        hm_value val;
+        assert(hm_get(&hm, &key, V_INT, &val) == MID_ERR_NULL);
+    }
+
+    for (size_t i = 0; i < strs_len; i++) {
+        free(pairs[i].str);
+    }
+
+    hm_destroy(&hm);
+
+    return 0;
+}
+
 int main()
 {
     TEST_STATUS(test_hm_new());
-    TEST_STATUS(test_hn_insert());
+    TEST_STATUS(test_hm_insert());
+    TEST_STATUS(test_hm_update());
+    TEST_STATUS(test_hm_get());
     TEST_STATUS(test_hm_contains_key());
 
     return 0;

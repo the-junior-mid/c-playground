@@ -267,6 +267,7 @@ int hm_values(const hashmap *hm, void *out);
 /// @brief Clears out all key-value pairs, retaining any memory allocated for reuse.
 /// @param[in,out] hm The `hashmap` to modify. Must be initialized.
 void hm_clear(hashmap *hm) {
+    if (hm->slots == NULL) return;
     memset(hm->slots, 0, hm->capacity * sizeof(hm_slot));
 }
 
@@ -275,14 +276,24 @@ void hm_clear(hashmap *hm) {
 /// @param[in]     key Pointer to the key to get the value of.
 /// @return `hm_value *` on success.
 /// @return `NULL` otherwise.
-hm_value * hm_get(const hashmap *hm, void *key, hm_type key_type) {
-    if (hm_contains_key(hm, key, key_type)) {
-        size_t hash = hm_hash(key, key_type);
-        hm_slot *slot = _hm_get_slot(hm, hm_get_bin(hm, hash));
-        return &slot->val;
-    } else {
-        return NULL;
-    }
+int hm_get(const hashmap *hm, void *key, hm_type key_type, hm_value *out_value) {
+    if (hm->slots == NULL) return MID_ERR_EMPTY;
+    if (key == NULL) return MID_ERR_NULL;
+
+    size_t hash = hm_hash(key, key_type);
+    size_t bin = hm_get_bin(hm, hash);
+    size_t new_bin;
+    int ret = hm_matching_slot(hm, bin, hash, &new_bin);
+    if (ret != 0) {
+        return ret;
+    };
+    bin = new_bin;
+    hm_slot *slot = _hm_get_slot(hm, bin);
+    if (slot == NULL || slot->hash == 0) return MID_ERR_NULL;
+
+    *out_value = slot->val;
+
+    return MID_OK;
 }
 
 /// @brief Get a reference to the key and value associtated with @p key.
@@ -394,47 +405,36 @@ int hm_insert(hashmap *hm, void *key, hm_type key_type, void *value, hm_type val
 /// @return `MID_OK` on success.
 /// @return `MID_ERR_TYPE` unknown `hm_type` provided.
 /// @return `MID_ERR_NOMEM` reallocation failed.
-int hm_update(hashmap *hm, void *key, hm_type key_type, void *value, hm_type val_type, hm_slot *out_value) {
+int hm_update(hashmap *hm, void *key, hm_type key_type, void *value, hm_type val_type, hm_value *out_value) {
     if ((hm->capacity == 0) || (hm->entries + 1 >= hm->capacity)) {
         int ret = hm_realloc(hm);
         if (ret < 0) return ret;
     }
     size_t hash = hm_hash(key, key_type);
     size_t bin = hm_get_bin(hm, hash);
-    hm_slot slot;
-    slot.hash = hash;
-    slot.key.type = V_INT;
-    switch (V_INT)
-    {
-        case V_INT: memcpy(&slot.key.as.i, key, sizeof(int));
-            break;
-        case V_DOUBLE: memcpy(&slot.key.as.d, key, sizeof(double));
-            break;
-        case V_STR: memcpy(&slot.key.as.s, key, sizeof(char *));
-            break;
-        case V_PTR: memcpy(&slot.key.as.p, key, sizeof(void *));
-            break;
-        default: return MID_ERR_TYPE;
-    }
-    slot.val.type = val_type;
+    size_t new_bin;
+    int ret = hm_matching_slot(hm, bin, hash, &new_bin);
+    if (ret != 0) {
+        return ret;
+    };
+    bin = new_bin;
+    hm_slot *slot = _hm_get_slot(hm, bin);
+    if (out_value != NULL) *out_value = slot->val;
+    slot->val.type = val_type;
     switch (val_type)
     {
-        case V_INT: memcpy(&slot.val.as.i, value, sizeof(int));
+        case V_INT: memcpy(&slot->val.as.i, value, sizeof(int));
             break;
-        case V_DOUBLE: memcpy(&slot.val.as.d, value, sizeof(double));
+        case V_DOUBLE: memcpy(&slot->val.as.d, value, sizeof(double));
             break;
-        case V_STR: memcpy(&slot.val.as.s, value, sizeof(char *));
+        case V_STR: memcpy(&slot->val.as.s, value, sizeof(char *));
             break;
-        case V_PTR: memcpy(&slot.val.as.p, value, sizeof(void *));
+        case V_PTR: memcpy(&slot->val.as.p, value, sizeof(void *));
             break;
         default: return MID_ERR_TYPE;
     }
-    // If the key exists, then set the out_value
-    if (hm_contains_key(hm, key, key_type) && out_value != NULL) {
-        memcpy(out_value, _hm_get_slot(hm, bin) + sizeof(hm_value) - 8, sizeof(hm_value));
-    }
+
     memcpy(hm->slots + bin, &slot, sizeof(hm_slot));
-    hm->entries++;
 
     return MID_OK;
 }
