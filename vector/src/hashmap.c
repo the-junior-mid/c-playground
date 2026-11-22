@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <stdio.h>
 #include <stdbool.h>
 #include <math.h>
@@ -5,10 +6,43 @@
 #include "hashmap.h"
 #include "log.h"
 
-#define PHI 0x9E3779B97F4A7C15;
 #define FNV_1A_PRIME 0x100000001B3;
 #define FNV_1A_OFFSET 0xCBF29CE484222325;
 
+
+/// @brief Initialize an iterator struct. If the @p hm is reallocated, the iterator is invalid.
+/// @param hm 
+/// @return 
+hm_iter hm_iter_new(const hashmap *hm) {
+    hm_iter iter = { .hm = hm, .bin = 0 };
+    return iter;
+}
+
+/// @brief Iterates over the entries in the `hashmap` for an initialized iterator.
+/// @param[in] iter The `hm_iter` to iterate to the next `hm_slot`.
+/// @param[out] out Pointer where the next valid `hm_slot` will be stored. Must not be NULL.
+/// @return `true` a valid `hm_slot` found and @p out was set to it.
+/// @return `false` no valid `hm_slot` found.
+bool hm_next(const hm_iter *iter, hm_slot *out) {
+    assert(out != NULL);
+
+    if (iter->hm->entries == 0) return false;
+
+    size_t bin = iter->bin;
+    if (bin >= iter->hm->capacity) return false;
+
+    // Find the next non-zero slot
+    hm_slot *slot = iter->hm->slots + bin;
+    while (slot->hash == 0 && bin < iter->hm->capacity) {
+        bin++;
+        slot = iter->hm->slots + bin;
+    }
+    if (bin >= iter->hm->capacity) return false;
+
+    out = slot;
+
+    return true;
+}
 
 /// @brief Get the nearest power of two for @p cap.
 /// @param cap The value to find the closest power of two.
@@ -22,11 +56,10 @@ size_t hm_get_power_of_two(size_t cap) {
     return ceil(log((double)cap) / log((double)2));
 }
 
-/// @brief 
-/// @param[in] key Pointer to the key to hash. Must not be NULL.      
-/// @param key_type 
-/// @param capacity 
-/// @return 
+/// @brief Use the FNV-1a hashing method on the given key.
+/// @param[in] key      Pointer to the key to hash. Must not be NULL.      
+/// @param[in] key_type The `hm_type` for @p key.
+/// @return `size_t` If the key_type is unknown it is mapped to the default hash value of `FNV_1A_OFFSET`.
 size_t hm_hash(void *key, hm_type key_type) {
     size_t h = FNV_1A_OFFSET;
     switch (key_type)
@@ -59,28 +92,6 @@ size_t hm_hash(void *key, hm_type key_type) {
     }
 
     return h;
-}
-
-/// @brief 
-/// @param[in] key Pointer to the key to hash. Must not be NULL.      
-/// @param key_type 
-/// @param capacity 
-/// @return 
-size_t hm_rehash(const hm_value *key) {
-    hm_type key_type = key->type;
-    switch (key_type)
-    {
-        case V_INT:
-            return hm_hash((void *)&(key->as.i), V_INT);
-        case V_DOUBLE:
-            return hm_hash((void *)&(key->as.d), V_DOUBLE);
-        case V_STR:
-            return hm_hash(key->as.s, V_STR);
-        case V_PTR:
-            return hm_hash(key->as.p, V_PTR);
-        default:
-            return 0;
-    }
 }
 
 /// @brief Perform the hashing function on the given key.
@@ -189,11 +200,14 @@ int hm_with_capacity(hashmap *hm, size_t capacity) {
     hm->slots = tmp;
     hm->entries = 0;
     hm->capacity = capacity;
+
+    return MID_OK;
 }
 
 /// @brief Double the current allocation size of @p hm. This triggers a re-mapping due to the size increase.
-/// @param[in, out] hm      The `hashmap` to modify. Must be initialized.
-/// @return 
+/// @param[in, out] hm The `hashmap` to modify. Must be initialized.
+/// @return `MID_OK` on success.
+/// @return `MID_ERR_NOMEM` reallocation failed.
 int hm_realloc(hashmap *hm) {
     size_t new_cap = hm->capacity == 0 ? 8 : hm->capacity * 2;
     // realloc would free the in-use mempry before we can properly copy its contents
@@ -256,7 +270,7 @@ void hm_clear(hashmap *hm) {
     memset(hm->slots, 0, hm->capacity * sizeof(hm_slot));
 }
 
-/// @brief Get a reference to the value associtated with @p key.
+/// @brief Get a reference to the `hm_value` associtated with @p key.
 /// @param[in,out] hm  The `hashmap` to modify. Must be initialized.
 /// @param[in]     key Pointer to the key to get the value of.
 /// @return `hm_value *` on success.
@@ -270,6 +284,7 @@ hm_value * hm_get(const hashmap *hm, void *key, hm_type key_type) {
         return NULL;
     }
 }
+
 /// @brief Get a reference to the key and value associtated with @p key.
 /// @param[in,out] hm  The `hashmap` to modify. Must be initialized.
 /// @param[in]     key Pointer to the key to get the value of.
@@ -377,8 +392,8 @@ int hm_insert(hashmap *hm, void *key, hm_type key_type, void *value, hm_type val
 /// @param[in]     value     Pointer to the value to store.
 /// @param[out]    out_value Pointer to store a previous value. If NULL then it is ignored.
 /// @return `MID_OK` on success.
-/// @return `MID_ERR_TYPE` if an unknown `hm_type` was provided.
-/// @return `MID_ERR_NOMEM` if a reallocation fails.
+/// @return `MID_ERR_TYPE` unknown `hm_type` provided.
+/// @return `MID_ERR_NOMEM` reallocation failed.
 int hm_update(hashmap *hm, void *key, hm_type key_type, void *value, hm_type val_type, hm_slot *out_value) {
     if ((hm->capacity == 0) || (hm->entries + 1 >= hm->capacity)) {
         int ret = hm_realloc(hm);
@@ -429,7 +444,9 @@ int hm_update(hashmap *hm, void *key, hm_type key_type, void *value, hm_type val
 /// @param[in]      key Pointer to the key to get the valubine of.
 /// @param[out]     out Pointer where the value will be stored. Cannot be NULL.
 /// @return `MID_OK` on success.
-int hm_remove(hashmap *hm, void *key, void *out);
+int hm_remove(hashmap *hm, void *key, void *out) {
+    
+}
 
 /// @brief Remove the @p key from the map and return its key and value in @p out_key and @p out_value, respectively.
 /// @param[in,out]  hm  The `hashmap` to modify. Must be initialized.
@@ -444,6 +461,6 @@ void hm_destroy(hashmap *hm) {
     if (hm->slots == NULL) return;
     free(hm->slots);
     hm->slots = NULL;
-    hm->capacity =0;
+    hm->capacity = 0;
     hm->entries = 0;
 }

@@ -35,19 +35,29 @@ typedef struct {
 } hashmap;
 
 typedef struct {
-    hm_slot *slots;
+    hashmap *hm;
     size_t bin;
 } hm_iter;
+
+typedef struct {
+    hashmap *hm;
+    size_t bin;
+} hm_key_iter;
+
+typedef struct {
+    hashmap *hm;
+    size_t bin;
+} hm_value_iter;
 
 /// @brief Initialize an iterator struct.
 /// @param hm 
 /// @return 
-int hm_iter_new(const hashmap *hm);
+hm_iter hm_iter_new(const hashmap *hm);
 
 /// @brief Iterates over the entries in the `hashmap` for an initialized iterator.
 /// @param iter 
 /// @return 
-bool hm_next(const hm_iter *iter);
+bool hm_next(const hm_iter *iter, hm_slot *out);
 
 hm_slot * _hm_get_slot(const hashmap *hm, size_t index);
 
