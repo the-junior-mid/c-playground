@@ -101,13 +101,13 @@ bool hm_is_empty(const hashmap *hm);
 /// @param[in,out] hm  The `hashmap` to modify. Must be initialized.
 /// @param[out]    out Pointer for the output to be stored in. Cannot be NULL. 
 /// @return `MID_OK` on success.
-int hm_keys(const hashmap *hm, void *out);
+int hm_keys(const hashmap *hm, hm_value *out);
 
 /// @brief Get a pointer to an array of `hashmap`'s values.
 /// @param[in,out] hm  The `hashmap` to modify. Must be initialized.
 /// @param[out]    out Pointer for the output to be stored in. Cannot be NULL. 
 /// @return `MID_OK` on success.
-int hm_values(const hashmap *hm, void *out);
+int hm_values(const hashmap *hm, hm_value *out);
 
 /// @brief Clears out all key-value pairs, retaining any memory allocated for reuse.
 /// @param[in,out] hm The `hashmap` to modify. Must be initialized.
@@ -147,14 +147,14 @@ int hm_update(hashmap *hm, void *key, hm_type key_type, void *value, hm_type val
 /// @param[in]      key Pointer to the key to get the value of.
 /// @param[out]     out Pointer where the value will be stored. Cannot be NULL.
 /// @return `MID_OK` on success.
-int hm_remove(hashmap *hm, void *key, void *out);
+int hm_remove(hashmap *hm, void *key, hm_type key_type, hm_value *out_value);
 
 /// @brief Remove the @p key from the map and return its key and value in @p out_key and @p out_value, respectively.
 /// @param[in,out]  hm  The `hashmap` to modify. Must be initialized.
 /// @param[in]      key Pointer to the key to get the value of.
 /// @param[out]     out Pointer where the value will be stored. Cannot be NULL.
 /// @return `MID_OK` on success.
-int hm_remove_entry(hashmap *hm, void *key, void *out_key, void *out_value);
+int hm_remove_entry(hashmap *hm, void *key, hm_type key_type, hm_value *out_key, hm_value *out_value);
 
 /// @brief Destroy the @p hm by freeing its memory, setting underlying ptr to NULL, then setting entiry count and capacity to zero.
 /// @param hm 

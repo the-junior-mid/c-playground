@@ -252,11 +252,13 @@ bool hm_is_empty(const hashmap *hm) {
     return hm->entries == 0;
 }
 
-/// @brief Get a pointer to an array of `hashmap`'s keys.
+/// @brief Get a pointer to a NULL terminated array of the `hashmap`'s keys.
 /// @param[in,out] hm  The `hashmap` to modify. Must be initialized.
 /// @param[out]    out Pointer for the output to be stored in. Cannot be NULL. 
 /// @return `MID_OK` on success.
-int hm_keys(const hashmap *hm, void *out);
+int hm_keys(const hashmap *hm, hm_value *out) {
+
+}
 
 /// @brief Get a pointer to an array of `hashmap`'s values.
 /// @param[in,out] hm  The `hashmap` to modify. Must be initialized.
@@ -301,18 +303,24 @@ int hm_get(const hashmap *hm, void *key, hm_type key_type, hm_value *out_value) 
 /// @param[in]     key Pointer to the key to get the value of.
 /// @return `MID_OK` on success.
 int hm_get_key_value(const hashmap *hm, void *key, hm_type key_type, hm_value *out_key, hm_value *out_value) {
-    if (out_key == NULL) return MID_ERR_NULL;
-    if (out_value == NULL) return MID_ERR_NULL;
-    if (hm_contains_key(hm, key, key_type)) {
-        size_t hash = hm_hash(key, key_type);
-        hm_slot *slot = _hm_get_slot(hm, hm_get_bin(hm, hash));
-        if (slot == NULL) return MID_ERR_NOT_FOUND;
-        *out_key = slot->key;
-        *out_value = slot->val;
-        return MID_OK;
-    } else {
-        return MID_ERR_NOT_FOUND;
-    }
+    if (hm->slots == NULL) return MID_ERR_EMPTY;
+    if (key == NULL) return MID_ERR_NULL;
+
+    size_t hash = hm_hash(key, key_type);
+    size_t bin = hm_get_bin(hm, hash);
+    size_t new_bin;
+    int ret = hm_matching_slot(hm, bin, hash, &new_bin);
+    if (ret != 0) {
+        return ret;
+    };
+    bin = new_bin;
+    hm_slot *slot = _hm_get_slot(hm, bin);
+    if (slot == NULL || slot->hash == 0) return MID_ERR_EMPTY;
+
+    *out_key = slot->key;
+    *out_value = slot->val;
+
+    return MID_OK;
 }
 
 /// @brief Return a bool of whether the key is in the `hashmap`.
@@ -434,18 +442,30 @@ int hm_update(hashmap *hm, void *key, hm_type key_type, void *value, hm_type val
         default: return MID_ERR_TYPE;
     }
 
-    memcpy(hm->slots + bin, &slot, sizeof(hm_slot));
+    memcpy(hm->slots + bin, slot, sizeof(hm_slot));
 
     return MID_OK;
 }
 
-/// @brief Remove the @p key from the map and return its value in @p out.
+/// @brief Remove the @p key from the map and return its value in @p out_value.
 /// @param[in,out]  hm  The `hashmap` to modify. Must be initialized.
 /// @param[in]      key Pointer to the key to get the valubine of.
 /// @param[out]     out Pointer where the value will be stored. Cannot be NULL.
 /// @return `MID_OK` on success.
-int hm_remove(hashmap *hm, void *key, void *out) {
-    
+int hm_remove(hashmap *hm, void *key, hm_type key_type, hm_value *out_value) {
+    size_t hash = hm_hash(key, key_type);
+    size_t bin = hm_get_bin(hm, hash);
+    size_t new_bin;
+    int ret = hm_matching_slot(hm, bin, hash, &new_bin);
+    if (ret != 0) {
+        return ret;
+    };
+    bin = new_bin;
+    hm_slot *slot = _hm_get_slot(hm, bin);
+    *out_value = slot->val;
+    memset(slot, 0, sizeof(hm_slot));
+
+    return MID_OK;
 }
 
 /// @brief Remove the @p key from the map and return its key and value in @p out_key and @p out_value, respectively.
@@ -453,7 +473,22 @@ int hm_remove(hashmap *hm, void *key, void *out) {
 /// @param[in]      key Pointer to the key to get the value of.
 /// @param[out]     out Pointer where the value will be stored. Cannot be NULL.
 /// @return `MID_OK` on success.
-int hm_remove_entry(hashmap *hm, void *key, void *out_key, void *out_value);
+int hm_remove_entry(hashmap *hm, void *key, hm_type key_type, hm_value *out_key, hm_value *out_value) {
+    size_t hash = hm_hash(key, key_type);
+    size_t bin = hm_get_bin(hm, hash);
+    size_t new_bin;
+    int ret = hm_matching_slot(hm, bin, hash, &new_bin);
+    if (ret != 0) {
+        return ret;
+    };
+    bin = new_bin;
+    hm_slot *slot = _hm_get_slot(hm, bin);
+    *out_key = slot->key;
+    *out_value = slot->val;
+    memset(slot, 0, sizeof(hm_slot));
+
+    return MID_OK;
+}
 
 /// @brief Destroy the @p hm by freeing its memory, setting underlying ptr to NULL, then setting entiry count and capacity to zero.
 /// @param hm 
