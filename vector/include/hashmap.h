@@ -7,9 +7,9 @@
 #ifndef MID_HASHMAP_H
 #define MID_HASHMAP_H
 
-static const unsigned char ZERO_HASH[8];
+static const unsigned char STATUS_UNINIT[4];
 
-typedef enum {V_INT=1, V_DOUBLE, V_STR, V_PTR} hm_type;
+typedef enum {UNINIT, V_INT, V_DOUBLE, V_STR, V_PTR} hm_type;
 
 typedef struct {
     hm_type type;
@@ -22,7 +22,6 @@ typedef struct {
 } hm_value;
 
 typedef struct {
-    size_t hash;
     hm_value key;
     hm_value val;
 } hm_slot;

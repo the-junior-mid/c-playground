@@ -27,7 +27,7 @@
 #define MAX_ENTRIES 256
 
 char * gen_str_val(size_t size, size_t offset) {
-    char *str = calloc(size, sizeof(char));
+    char *str = calloc(size + 1, sizeof(char));
     if (!str) return NULL;
     for (size_t i = 0; i < size; i++) {
         str[i] = (char)('a' + (offset * 7 + i) % 26);
@@ -75,7 +75,7 @@ int test_hm_insert() {
     // check all key/value pairs exist
     for (size_t bin = 0; bin < hm.capacity; bin++) {
         hm_slot *slot = _hm_get_slot(&hm, bin);
-        if (slot->hash == 0) continue;
+        if (slot->key.as.i == 0) continue;
         int key = slot->key.as.i;
         char *value = slot->val.as.s;
         ASSERT_MSG(value == pairs[key].str, "expected %p, found %p", pairs[bin].str, value);
@@ -91,7 +91,7 @@ int test_hm_insert() {
     // check all key/value pairs exist
     for (size_t bin = 0; bin < hm.capacity; bin++) {
         hm_slot *slot = _hm_get_slot(&hm, bin);
-        if (slot->hash == 0) continue;
+        if (slot->key.as.i == 0) continue;
         int key = slot->key.as.i;
         char *value = slot->val.as.s;
         ASSERT_MSG(value == pairs[key].str, "expected %p, found %p", pairs[bin].str, value);
@@ -106,7 +106,7 @@ int test_hm_insert() {
     // check all key/value pairs exist
     for (size_t bin = 0; bin < hm.capacity; bin++) {
         hm_slot *slot = _hm_get_slot(&hm, bin);
-        if (slot->hash == 0) continue;
+        if (slot->key.as.i == 0) continue;
         int key = slot->key.as.i;
         char *value = slot->val.as.s;
         ASSERT_MSG(value == pairs[key].str, "expected %p, found %p", pairs[bin].str, value);
@@ -138,7 +138,6 @@ int test_hm_update() {
         pairs1[i].str = gen_str_val(6, i);
     }
 
-    size_t strs_len = 0;
     hashmap hm;
     hm_new(&hm);
     ASSERT_MSG(hm.slots == NULL, "hashmap initialized slots with non-null value");
@@ -152,7 +151,7 @@ int test_hm_update() {
     // check all key/value pairs exist
     for (size_t bin = 0; bin < hm.capacity; bin++) {
         hm_slot *slot = _hm_get_slot(&hm, bin);
-        if (slot->hash == 0) continue;
+        if (slot->key.as.i == 0) continue;
         int key = slot->key.as.i;
         char *value = slot->val.as.s;
         ASSERT_MSG(value == pairs0[key].str, "expected %p, found %p", pairs0[key].str, value);
@@ -162,17 +161,17 @@ int test_hm_update() {
     for (size_t key = 0; key < 7; key++) {
         char *val = pairs1[key].str;
         hm_value value;
-        assert(hm_update(&hm, &key, V_INT, &val, V_STR, &value) == 0);
+        assert(hm_update(&hm, &key, V_INT, val, V_STR, &value) == 0);
         ASSERT_MSG(value.as.s == pairs0[key].str, "expected %p, found %p", pairs0[key].str, value.as.s);
     }
 
     // check all key/value pairs exist
     for (size_t bin = 0; bin < hm.capacity; bin++) {
         hm_slot *slot = _hm_get_slot(&hm, bin);
-        if (slot->hash == 0) continue;
+        if (slot->key.type == 0) continue;
         int key = slot->key.as.i;
         char *value = slot->val.as.s;
-        ASSERT_MSG(value == pairs1[key].str, "expected %p, found %p", pairs1[key].str, value);
+        ASSERT_MSG(value == pairs1[key].str, "expected '%s' for key %d, found '%s'", pairs1[key].str, key, value);
     }
 
     // force reallocation
@@ -185,10 +184,17 @@ int test_hm_update() {
     // check all key/value pairs exist
     for (size_t bin = 0; bin < hm.capacity; bin++) {
         hm_slot *slot = _hm_get_slot(&hm, bin);
-        if (slot->hash == 0) continue;
+        if (slot->key.as.i == 0) continue;
         int key = slot->key.as.i;
         char *value = slot->val.as.s;
         ASSERT_MSG(value == pairs1[key].str, "expected %p, found %p", pairs1[key].str, value);
+    }
+
+    for (size_t key = 7; key < 14; key++) {
+        char *val = pairs0[key].str;
+        hm_value value;
+        assert(hm_update(&hm, &key, V_INT, val, V_STR, &value) == 0);
+        ASSERT_MSG(value.as.s == pairs1[key].str, "expected %p, found %p", pairs1[key].str, value.as.s);
     }
 
     for (size_t i = 0; i < MAX_ENTRIES; i++) {
@@ -312,7 +318,7 @@ int test_hm_get() {
     // no values should be found
     for (size_t key = 0; key < 14; key++) {
         hm_value val;
-        assert(hm_get(&hm, &key, V_INT, &val) == MID_ERR_NULL);
+        assert(hm_get(&hm, &key, V_INT, &val) == MID_ERR_NOT_FOUND);
     }
 
     for (size_t i = 0; i < MAX_ENTRIES; i++) {
@@ -339,8 +345,9 @@ int test_hm_get_key_value() {
 
     // make sure no keys are found
     for (size_t key = 0; key < 8; key++) {
-        hm_value val;
-        assert(hm_get(&hm, &key, V_INT, &val) == MID_ERR_EMPTY);
+        hm_value out_key;
+        hm_value out_val;
+        assert(hm_get_key_value(&hm, &key, V_INT, &out_key, &out_val) == MID_ERR_EMPTY);
     }
 
     // Fill the map
@@ -354,7 +361,7 @@ int test_hm_get_key_value() {
         hm_value out_key;
         hm_value out_val;
         assert(hm_get_key_value(&hm, &key, V_INT, &out_key, &out_val) == 0);
-        ASSERT_MSG(out_key.as.i == key, "expected %lu for key, found %d", key, out_key.as.i);
+        ASSERT_MSG((size_t)out_key.as.i == key, "expected %lu for key, found %d", key, out_key.as.i);
         ASSERT_MSG(out_val.as.s == pairs[key].str, "expected value '%s' for key '%lu', found '%s'", pairs[key].str, key, out_val.as.s);
     }
 
@@ -380,7 +387,7 @@ int test_hm_get_key_value() {
     for (size_t key = 0; key < 7; key++) {
         hm_value out_key;
         hm_value out_val;
-        assert(hm_get_key_value(&hm, &key, V_INT, &out_key, &out_val) == MID_ERR_EMPTY);
+        assert(hm_get_key_value(&hm, &key, V_INT, &out_key, &out_val) == MID_ERR_NOT_FOUND);
     }
 
     for (size_t i = 0; i < MAX_ENTRIES; i++) {
@@ -414,7 +421,7 @@ int test_hm_remove() {
     // check all key/value pairs exist
     for (size_t bin = 0; bin < hm.capacity; bin++) {
         hm_slot *slot = _hm_get_slot(&hm, bin);
-        if (slot->hash == 0) continue;
+        if (slot->key.as.i == 0) continue;
         int key = slot->key.as.i;
         char *value = slot->val.as.s;
         ASSERT_MSG(value == pairs[key].str, "expected %p, found %p", pairs[bin].str, value);
@@ -430,7 +437,7 @@ int test_hm_remove() {
     // check all key/value pairs no longer exist
     for (size_t bin = 0; bin < hm.capacity; bin++) {
         hm_slot *slot = _hm_get_slot(&hm, bin);
-        ASSERT_MSG(slot->hash == 0, "expected 0, found %lu", slot->hash);
+        ASSERT_MSG(slot->key.as.i == 0, "expected 0, found %lu", slot->key.as.i);
     }
 
     for (size_t i = 0; i < MAX_ENTRIES; i++) {
@@ -464,7 +471,7 @@ int test_hm_remove_entry() {
     // check all key/value pairs exist
     for (size_t bin = 0; bin < hm.capacity; bin++) {
         hm_slot *slot = _hm_get_slot(&hm, bin);
-        if (slot->hash == 0) continue;
+        if (slot->key.as.i == 0) continue;
         int key = slot->key.as.i;
         char *value = slot->val.as.s;
         ASSERT_MSG(value == pairs[key].str, "expected %p, found %p", pairs[bin].str, value);
@@ -482,7 +489,7 @@ int test_hm_remove_entry() {
     // check all key/value pairs no longer exist
     for (size_t bin = 0; bin < hm.capacity; bin++) {
         hm_slot *slot = _hm_get_slot(&hm, bin);
-        ASSERT_MSG(slot->hash == 0, "expected 0, found %lu", slot->hash);
+        ASSERT_MSG(slot->key.as.i == 0, "expected 0, found %lu", slot->key.as.i);
     }
 
     for (size_t i = 0; i < MAX_ENTRIES; i++) {

@@ -11,6 +11,7 @@ typedef enum {
     MID_ERR_TYPE,
     MID_ERR_SLOTS,
     MID_ERR_NOT_FOUND,
+    MID_INVALID_ARG,
 } mid_status;
 
 /// @brief Convert the error number into a string detailing the reason for the error.
@@ -27,6 +28,7 @@ static inline char * mid_strerror(int err) {
         case MID_ERR_TYPE:         return "invalid type for hm_value";
         case MID_ERR_SLOTS:        return "slots full";
         case MID_ERR_NOT_FOUND:    return "not found";
+        case MID_INVALID_ARG:      return "an invalid argument was given";
         default:                   return "unknown error";
     }
 }
