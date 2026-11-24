@@ -13,7 +13,7 @@
 /// @brief Initialize an iterator struct. If the @p hm is reallocated, the iterator is invalid.
 /// @param hm 
 /// @return 
-hm_iter hm_iter_new(const hashmap *hm) {
+hm_iter hm_iter_new(hashmap *hm) {
     hm_iter iter = { .hm = hm, .bin = 0 };
     return iter;
 }
@@ -101,17 +101,13 @@ size_t _hm_get_bin(const hashmap *hm, size_t hash) {
     return hash & (hm->capacity - 1);
 }
 
-hm_slot * _hm_get_slot(const hashmap *hm, size_t bin) {
-    return hm->slots + bin;
-}
-
 /// @brief Print the @p hm to `STDERR`.
 /// @param hm 
 void hm_print(hashmap *hm, size_t m) {
     fprintf(stderr, "hashmap (%lu/%lu) {\n", hm->entries, hm->capacity);
     size_t j = 0;
     for (int bin = 0; (size_t)bin < hm->capacity; bin++) {
-        hm_slot *slot = _hm_get_slot(hm, bin);
+        hm_slot *slot = hm->slots + bin;
         if (slot->key.type == UNINIT) continue;
         if (j % m == 0) {
             if (j == hm->entries - 1) {
@@ -139,23 +135,16 @@ void hm_print(hashmap *hm, size_t m) {
 /// @param hm 
 /// @param slots 
 /// @param bin 
-int hm_next_empty_slot(const hashmap *hm, hm_slot *slots, size_t bin, size_t *out_bin) {
-    if (out_bin == NULL) return MID_ERR_NULL;
-
-    size_t i = 0;
-    while (memcmp(slots + bin, &STATUS_UNINIT, sizeof(hm_type)) != 0) {
-        bin += 1;
-        if (bin > hm->capacity - 1) bin % hm->capacity;
-        i++;
-        if (i >= hm->capacity) {
-            LOG(WARN, "%lu slot(s) full", hm->capacity);
-            return MID_ERR_SLOTS;
+hm_slot * _hm_next_empty_slot(hm_slot *slots, size_t capacity, size_t bin) {
+    for (size_t probe = 0; probe < capacity; probe++) {
+        hm_slot *slot = slots + bin;
+        if (slot->key.type == 0) {
+            return slot;
         }
+        bin = (bin + 1) % capacity;
     }
 
-    *out_bin = bin;
-
-    return MID_OK;
+    return NULL;
 }
 
 /// @brief Compare the keys for equality by matching the key type and key data.
@@ -187,7 +176,7 @@ bool _hm_eq_keys(void *key1, hm_type key_type1, hm_value *key2) {
 hm_slot * _hm_matching_slot(const hashmap *hm, void *key, hm_type key_type, size_t bin) {
     // Find the first initialized slot that contains the key
     for (size_t probe = 0; probe < hm->capacity; probe++) {
-        hm_slot *slot = _hm_get_slot(hm, bin);
+        hm_slot *slot = hm->slots + bin;
         if (_hm_eq_keys(key, key_type, &slot->key)) {
             return slot;
         }
@@ -233,14 +222,15 @@ int hm_realloc(hashmap *hm) {
 
     // Iterate through the old memory and move any entries into the new memory
     for (size_t bin = 0; bin < hm->capacity; bin++) {
-        hm_slot *slot = _hm_get_slot(hm, bin);
-        if ((slot == NULL) || (slot->key.type == UNINIT)) continue;
-        size_t new_bin;
-        int ret = hm_next_empty_slot(hm, tmp, bin, &new_bin);
-        if (ret != 0) {
-            return ret;
+        hm_slot *slot_old = hm->slots + bin;
+        if ((slot_old->key.type == UNINIT)) continue;
+        // Find the next empty slot in the new allocation
+        hm_slot *slot_new = _hm_next_empty_slot(tmp, hm->capacity, bin);
+        if (slot_new == NULL) {
+            return MID_ERR_SLOTS;
         };
-        tmp[new_bin] = hm->slots[bin];
+
+        tmp[slot_new - tmp] = hm->slots[bin];
     }
 
     free(hm->slots);
@@ -366,41 +356,37 @@ int hm_insert(hashmap *hm, void *key, hm_type key_type, void *value, hm_type val
     }
     size_t hash = _hm_hash(key, key_type);
     size_t bin = _hm_get_bin(hm, hash);
-    size_t new_bin;
-    int ret = hm_next_empty_slot(hm, hm->slots, bin, &new_bin);
-    if (ret != 0) {
-        return ret;
+    hm_slot *slot = _hm_next_empty_slot(hm->slots, hm->capacity, bin);
+    if (slot == NULL) {
+        return MID_ERR_SLOTS;
     };
-    bin = new_bin;
-    hm_slot slot;
-    slot.key.type = key_type;
+    slot->key.type = key_type;
     switch (key_type)
     {
-        case V_INT: memcpy(&slot.key.as.i, key, sizeof(int));
+        case V_INT: slot->key.as.i = *(int *)key;
             break;
-        case V_DOUBLE: memcpy(&slot.key.as.d, key, sizeof(double));
+        case V_DOUBLE: slot->key.as.d = *(double *)key;
             break;
-        case V_STR: memcpy(&slot.key.as.s, key, sizeof(char *));
+        case V_STR: slot->key.as.s = (char *)key;
             break;
-        case V_PTR: memcpy(&slot.key.as.p, key, sizeof(void *));
+        case V_PTR: slot->key.as.p = key;
             break;
         default: return MID_ERR_TYPE;
     }
-    slot.val.type = val_type;
+    slot->val.type = val_type;
     switch (val_type)
     {
-        case V_INT: memcpy(&slot.val.as.i, value, sizeof(int));
+        case V_INT: slot->val.as.i = *(int *)value;
             break;
-        case V_DOUBLE: memcpy(&slot.val.as.d, value, sizeof(double));
+        case V_DOUBLE: slot->val.as.d = *(double *)value;
             break;
-        case V_STR: memcpy(&slot.val.as.s, value, sizeof(char *));
+        case V_STR: slot->val.as.s = (char *)value;
             break;
-        case V_PTR: memcpy(&slot.val.as.p, value, sizeof(void *));
+        case V_PTR: slot->val.as.p = value;
             break;
         default: return MID_ERR_TYPE;
     }
 
-    memcpy(hm->slots + bin, &slot, sizeof(hm_slot));
     hm->entries++;
 
     return MID_OK;

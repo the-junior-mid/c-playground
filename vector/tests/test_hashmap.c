@@ -36,6 +36,10 @@ char * gen_str_val(size_t size, size_t offset) {
     return str;
 }
 
+size_t get_offset_from_str(char *str) {
+    return (15 * (str[0] - 'a') % 26 + 26) % 26;
+}
+
 typedef struct {
     size_t key;
     char *str;
@@ -69,12 +73,12 @@ int test_hm_insert() {
     // Fill the map, but do not cause a reallocation
     for (size_t key = 0; key < 7; key++) {
         char *val = pairs[key].str;
-        assert(hm_insert(&hm, &key, V_INT, &val, V_STR) == 0);
+        assert(hm_insert(&hm, &key, V_INT, val, V_STR) == 0);
     }
 
     // check all key/value pairs exist
     for (size_t bin = 0; bin < hm.capacity; bin++) {
-        hm_slot *slot = _hm_get_slot(&hm, bin);
+        hm_slot *slot = &hm.slots[bin];
         if (slot->key.as.i == 0) continue;
         int key = slot->key.as.i;
         char *value = slot->val.as.s;
@@ -85,12 +89,12 @@ int test_hm_insert() {
     // can't use the same check as before since reallocating can lead to collisions
     for (size_t key = 7; key < 14; key++) {
         char *val = pairs[key].str;
-        assert(hm_insert(&hm, &key, V_INT, &val, V_STR) == 0);
+        assert(hm_insert(&hm, &key, V_INT, val, V_STR) == 0);
     }
 
     // check all key/value pairs exist
     for (size_t bin = 0; bin < hm.capacity; bin++) {
-        hm_slot *slot = _hm_get_slot(&hm, bin);
+        hm_slot *slot = &hm.slots[bin];
         if (slot->key.as.i == 0) continue;
         int key = slot->key.as.i;
         char *value = slot->val.as.s;
@@ -100,16 +104,16 @@ int test_hm_insert() {
     // try to overwrite existing keys, should just trigger an allocation and add more key-value pairs
     for (size_t key = 0; key < 7; key++) {
         char *val = pairs[key].str;
-        assert(hm_insert(&hm, &key, V_INT, &val, V_STR) == 0);
+        assert(hm_insert(&hm, &key, V_INT, val, V_STR) == 0);
     }
 
     // check all key/value pairs exist
     for (size_t bin = 0; bin < hm.capacity; bin++) {
-        hm_slot *slot = _hm_get_slot(&hm, bin);
+        hm_slot *slot = &hm.slots[bin];
         if (slot->key.as.i == 0) continue;
         int key = slot->key.as.i;
         char *value = slot->val.as.s;
-        ASSERT_MSG(value == pairs[key].str, "expected %p, found %p", pairs[bin].str, value);
+        ASSERT_MSG(value == pairs[key].str, "expected %p, found %p", pairs[key].str, value);
     }
 
     for (size_t i = 0; i < MAX_ENTRIES; i++) {
@@ -145,12 +149,12 @@ int test_hm_update() {
     // Fill the map, but do not cause a reallocation
     for (size_t key = 0; key < 7; key++) {
         char *val = pairs0[key].str;
-        assert(hm_insert(&hm, &key, V_INT, &val, V_STR) == 0);
+        assert(hm_insert(&hm, &key, V_INT, val, V_STR) == 0);
     }
 
     // check all key/value pairs exist
     for (size_t bin = 0; bin < hm.capacity; bin++) {
-        hm_slot *slot = _hm_get_slot(&hm, bin);
+        hm_slot *slot = &hm.slots[bin];
         if (slot->key.as.i == 0) continue;
         int key = slot->key.as.i;
         char *value = slot->val.as.s;
@@ -167,7 +171,7 @@ int test_hm_update() {
 
     // check all key/value pairs exist
     for (size_t bin = 0; bin < hm.capacity; bin++) {
-        hm_slot *slot = _hm_get_slot(&hm, bin);
+        hm_slot *slot = &hm.slots[bin];
         if (slot->key.type == 0) continue;
         int key = slot->key.as.i;
         char *value = slot->val.as.s;
@@ -178,12 +182,12 @@ int test_hm_update() {
     // can't use the same check as before since reallocating can lead to collisions
     for (size_t key = 7; key < 14; key++) {
         char *val = pairs1[key].str;
-        assert(hm_insert(&hm, &key, V_INT, &val, V_STR) == 0);
+        assert(hm_insert(&hm, &key, V_INT, val, V_STR) == 0);
     }
 
     // check all key/value pairs exist
     for (size_t bin = 0; bin < hm.capacity; bin++) {
-        hm_slot *slot = _hm_get_slot(&hm, bin);
+        hm_slot *slot = &hm.slots[bin];
         if (slot->key.as.i == 0) continue;
         int key = slot->key.as.i;
         char *value = slot->val.as.s;
@@ -289,7 +293,7 @@ int test_hm_get() {
     // Fill the map
     for (size_t key = 0; key < 7; key++) {
         char *val = pairs[key].str;
-        assert(hm_insert(&hm, &key, V_INT, &val, V_STR) == 0);
+        assert(hm_insert(&hm, &key, V_INT, val, V_STR) == 0);
     }
 
     // all values should be found
@@ -302,7 +306,7 @@ int test_hm_get() {
     // force a reallocation with new keys
     for (size_t key = 7; key < 14; key++) {
         char *val = pairs[key].str;
-        assert(hm_insert(&hm, &key, V_INT, &val, V_STR) == 0);
+        assert(hm_insert(&hm, &key, V_INT, val, V_STR) == 0);
     }
 
     // all keys should be found
@@ -353,7 +357,7 @@ int test_hm_get_key_value() {
     // Fill the map
     for (size_t key = 0; key < 7; key++) {
         char *val = pairs[key].str;
-        assert(hm_insert(&hm, &key, V_INT, &val, V_STR) == 0);
+        assert(hm_insert(&hm, &key, V_INT, val, V_STR) == 0);
     }
 
     // all values should be found
@@ -368,7 +372,7 @@ int test_hm_get_key_value() {
     // force a reallocation with new keys
     for (size_t key = 7; key < 14; key++) {
         char *val = pairs[key].str;
-        assert(hm_insert(&hm, &key, V_INT, &val, V_STR) == 0);
+        assert(hm_insert(&hm, &key, V_INT, val, V_STR) == 0);
     }
 
     // all keys should be found
@@ -415,12 +419,12 @@ int test_hm_remove() {
     // Fill the map, but do not cause a reallocation
     for (size_t key = 0; key < 7; key++) {
         char *val = pairs[key].str;
-        assert(hm_insert(&hm, &key, V_INT, &val, V_STR) == 0);
+        assert(hm_insert(&hm, &key, V_INT, val, V_STR) == 0);
     }
 
     // check all key/value pairs exist
     for (size_t bin = 0; bin < hm.capacity; bin++) {
-        hm_slot *slot = _hm_get_slot(&hm, bin);
+        hm_slot *slot = &hm.slots[bin];
         if (slot->key.as.i == 0) continue;
         int key = slot->key.as.i;
         char *value = slot->val.as.s;
@@ -436,8 +440,8 @@ int test_hm_remove() {
 
     // check all key/value pairs no longer exist
     for (size_t bin = 0; bin < hm.capacity; bin++) {
-        hm_slot *slot = _hm_get_slot(&hm, bin);
-        ASSERT_MSG(slot->key.as.i == 0, "expected 0, found %lu", slot->key.as.i);
+        hm_slot *slot = &hm.slots[bin];
+        ASSERT_MSG(slot->key.as.i == 0, "expected 0, found %d", slot->key.as.i);
     }
 
     for (size_t i = 0; i < MAX_ENTRIES; i++) {
@@ -465,12 +469,12 @@ int test_hm_remove_entry() {
     // Fill the map, but do not cause a reallocation
     for (size_t key = 0; key < 7; key++) {
         char *val = pairs[key].str;
-        assert(hm_insert(&hm, &key, V_INT, &val, V_STR) == 0);
+        assert(hm_insert(&hm, &key, V_INT, val, V_STR) == 0);
     }
 
     // check all key/value pairs exist
     for (size_t bin = 0; bin < hm.capacity; bin++) {
-        hm_slot *slot = _hm_get_slot(&hm, bin);
+        hm_slot *slot = &hm.slots[bin];
         if (slot->key.as.i == 0) continue;
         int key = slot->key.as.i;
         char *value = slot->val.as.s;
@@ -488,13 +492,92 @@ int test_hm_remove_entry() {
 
     // check all key/value pairs no longer exist
     for (size_t bin = 0; bin < hm.capacity; bin++) {
-        hm_slot *slot = _hm_get_slot(&hm, bin);
+        hm_slot *slot = &hm.slots[bin];
         ASSERT_MSG(slot->key.as.i == 0, "expected 0, found %lu", slot->key.as.i);
     }
 
     for (size_t i = 0; i < MAX_ENTRIES; i++) {
         free(pairs[i].str);
     }
+
+    hm_destroy(&hm);
+
+    return 0;
+}
+
+int test_str_keys() {
+    typedef struct {
+        char *key;
+        void *val;
+    } pair1;
+
+    // track all key-value pairs
+    pair1 pairs[MAX_ENTRIES] = {0};
+    // create the key-value pairs that will be used
+    for (size_t i = 0; i < MAX_ENTRIES; i++) {
+        pairs[i].key = gen_str_val(5, i);
+        pairs[i].val = (void *)(SENTINEL_PTR + i);
+    }
+
+    hashmap hm;
+    hm_new(&hm);
+    ASSERT_MSG(hm.slots == NULL, "hashmap initialized slots with non-null value");
+
+    // Fill the map, but do not cause a reallocation
+    for (size_t key = 0; key < 7; key++) {
+        char *k = pairs[key].key;
+        void *val = pairs[key].val;
+        assert(hm_insert(&hm, k, V_STR, val, V_PTR) == 0);
+    }
+
+    for (size_t bin = 0; bin < hm.capacity; bin++) {
+        hm_slot *slot = &hm.slots[bin];
+        if (slot->key.type == 0) continue;
+        char *key = slot->key.as.s;
+        void *value = slot->val.as.p;
+        size_t k = get_offset_from_str(key);
+        ASSERT_MSG(value == pairs[k].val, "expected %p for key '%s', found %p", pairs[k].val, key, value);
+    }
+
+    for (size_t i = 0; i < MAX_ENTRIES; i++) {
+        free(pairs[i].key);
+    }
+
+    hm_destroy(&hm);
+
+    return 0;
+}
+
+int test_basics() {
+    hashmap hm;
+    hm_new(&hm);
+    ASSERT_MSG(hm.slots == NULL, "hashmap initialized slots with non-null value");
+
+    hm_value out;
+    ASSERT_MSG(hm_get(&hm, 0, V_INT, &out) == MID_ERR_EMPTY, "empty hashmap produced invalid key");
+    ASSERT_MSG(hm_get(&hm, 0, V_DOUBLE, &out) == MID_ERR_EMPTY, "empty hashmap produced invalid key");
+    ASSERT_MSG(hm_get(&hm, "test-key", V_STR, &out) == MID_ERR_EMPTY, "empty hashmap produced invalid key");
+    ASSERT_MSG(hm_get(&hm, (void *)SENTINEL_PTR, V_PTR, &out) == MID_ERR_EMPTY, "empty hashmap produced invalid key");
+
+    int key1 = 45;
+    assert(hm_insert(&hm, &key1, V_INT, "hello, world!", V_STR) == 0);
+    ASSERT_MSG(hm.entries == 1, "expected 1 entry count, found %lu", &hm.entries);
+    assert(hm_get(&hm, &key1, V_INT, &out) == 0);
+    ASSERT_MSG(strcmp(out.as.s, "hello, world!") == 0, "retreived invalid hm_value");
+
+    int key2 = 77;
+    assert(hm_insert(&hm, &key2, V_INT, "test-asdf", V_STR) == 0);
+    ASSERT_MSG(hm.entries == 2, "expected 1 entry count, found %lu", &hm.entries);
+    assert(hm_get(&hm, &key2, V_INT, &out) == 0);
+    ASSERT_MSG(strcmp(out.as.s, "test-asdf") == 0, "retreived invalid hm_value");
+
+    assert(hm_get(&hm, &key1, V_INT, &out) == 0);
+    ASSERT_MSG(strcmp(out.as.s, "hello, world!") == 0, "retreived invalid hm_value");
+
+    void *out1 = (void *)SENTINEL_PTR;
+    int bad_key = 777;
+    assert(hm_get(&hm, &bad_key, V_INT, out1) == MID_ERR_NOT_FOUND);
+    ASSERT_MSG(out1 == SENTINEL_PTR, "retreived invalid hm_value");
 
     hm_destroy(&hm);
 
@@ -511,6 +594,9 @@ int main()
     TEST_STATUS(test_hm_contains_key());
     TEST_STATUS(test_hm_remove());
     TEST_STATUS(test_hm_remove_entry());
+
+    TEST_STATUS(test_str_keys());
+    TEST_STATUS(test_basics());
 
     return 0;
 }

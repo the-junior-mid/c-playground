@@ -51,14 +51,12 @@ typedef struct {
 /// @brief Initialize an iterator struct.
 /// @param hm 
 /// @return 
-hm_iter hm_iter_new(const hashmap *hm);
+hm_iter hm_iter_new(hashmap *hm);
 
 /// @brief Iterates over the entries in the `hashmap` for an initialized iterator.
 /// @param iter 
 /// @return 
 bool hm_next(const hm_iter *iter, hm_slot *out);
-
-hm_slot * _hm_get_slot(const hashmap *hm, size_t index);
 
 void hm_print(hashmap *hm, size_t columns);
 
