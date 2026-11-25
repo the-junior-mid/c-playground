@@ -22,5 +22,12 @@
       "group": { "kind": "build", "isDefault": true },
       "problemMatcher": ["$gcc"]
     },
+    {
+      "label": "build option",
+      "type": "shell",
+      "command": "mkdir -p build && gcc -g -O0 -Wall -Wextra -Iinclude ${workspaceFolder}/tests/test_option.c ${workspaceFolder}/src/option.c -o ${workspaceFolder}/build/test_option",
+      "group": { "kind": "build", "isDefault": true },
+      "problemMatcher": ["$gcc"]
+    },
   ]
 }

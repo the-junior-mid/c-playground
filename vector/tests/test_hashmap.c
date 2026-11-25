@@ -435,6 +435,7 @@ int test_hm_remove() {
     for (size_t key = 0; key < 7; key++) {
         hm_value out_value;
         assert(hm_remove(&hm, &key, V_INT, &out_value) == 0);
+        ASSERT_MSG(hm.entries == 6 - key, "expected entry count of %d, found %d", 6 - key, hm.entries);
         ASSERT_MSG(out_value.as.s == pairs[key].str, "expected '%s' for key %lu, found '%s'", pairs[key].str, key, out_value.as.s);
     }
 
@@ -486,6 +487,7 @@ int test_hm_remove_entry() {
         hm_value out_key;
         hm_value out_value;
         assert(hm_remove_entry(&hm, &key, V_INT, &out_key, &out_value) == 0);
+        ASSERT_MSG(hm.entries == 6 - key, "expected entry count of %d, found %d", 6 - key, hm.entries);
         ASSERT_MSG((size_t)out_key.as.i == key, "expected %lu for key, found %d", key, out_key.as.i);
         ASSERT_MSG(out_value.as.s == pairs[key].str, "expected '%s' for key %lu, found '%s'", pairs[key].str, key, out_value.as.s);
     }
@@ -493,7 +495,7 @@ int test_hm_remove_entry() {
     // check all key/value pairs no longer exist
     for (size_t bin = 0; bin < hm.capacity; bin++) {
         hm_slot *slot = &hm.slots[bin];
-        ASSERT_MSG(slot->key.as.i == 0, "expected 0, found %lu", slot->key.as.i);
+        ASSERT_MSG(slot->key.as.i == 0, "expected 0, found %d", slot->key.as.i);
     }
 
     for (size_t i = 0; i < MAX_ENTRIES; i++) {
@@ -582,6 +584,10 @@ int test_basics() {
     hm_destroy(&hm);
 
     return 0;
+}
+
+int test_removal() {
+    
 }
 
 int main()
