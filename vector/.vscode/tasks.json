@@ -29,5 +29,12 @@
       "group": { "kind": "build", "isDefault": true },
       "problemMatcher": ["$gcc"]
     },
+    {
+      "label": "build bint",
+      "type": "shell",
+      "command": "mkdir -p build && gcc -g -O0 -Wall -Wextra -Iinclude ${workspaceFolder}/tests/test_bint.c ${workspaceFolder}/src/bint.c -o ${workspaceFolder}/build/test_bint",
+      "group": { "kind": "build", "isDefault": true },
+      "problemMatcher": ["$gcc"]
+    },
   ]
 }

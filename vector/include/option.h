@@ -29,4 +29,6 @@ int opt_take(option *opt, void *out, opt_type *out_type);
 
 void opt_replae(option *opt, void *new_content, opt_type new_type, void *out);
 
+
+
 #endif

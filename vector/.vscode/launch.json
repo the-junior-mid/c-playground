@@ -108,5 +108,31 @@
             ],
             "preLaunchTask": "build option"
         },
+        {
+            "name": "bint debug (gdb)",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/test_bint",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "miDebuggerPath": "/usr/bin/gdb",
+            "setupCommands": [
+                {
+                "description": "Enable pretty-printing for gdb",
+                "text": "-enable-pretty-printing",
+                "ignoreFailures": true
+                },
+                {
+                "description": "Use Intel disassembly flavor",
+                "text": "-gdb-set disassembly-flavor intel",
+                "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build bint"
+        },
     ]
 }
